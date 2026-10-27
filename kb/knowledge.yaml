@@ -15,7 +15,7 @@
 meta:
   nama: Knowledge Base BRONE
   versi: "4.1"
-  diperbarui: "2026-10-06"
+  diperbarui: "2026-10-26"
   catatan_keputusan:
     - Robot memperkenalkan diri sebagai Bron. Nama anggota tim robot tidak dicantumkan.
     - Lantai laboratorium FILKOM tidak dicantumkan karena sumbernya tidak konsisten.
@@ -234,16 +234,17 @@ bagian:
         berlaku_hingga: "2027-01-05"
       - sub: Wisuda 2026/2027
         teks: >-
-          Wisuda UB tahun akademik 2026/2027 digelar di Gedung Samantha Krida. Periode I dan II berlangsung 12 dan 13 September 2026,
-          periode III dan IV pada 19 dan 20 September 2026, serta periode V dan VI pada Sabtu 10 Oktober dan Minggu 11 Oktober 2026,
-          pukul 07.30 sampai 11.30. Pendaftaran wisuda dilakukan melalui bagian akademik fakultas masing-masing.
-          Jadwal periode berikutnya belum diumumkan.
-        sumber: [ub_wisuda56]
-        berlaku_hingga: "2026-10-11"
+          Wisuda UB tahun akademik 2026/2027 digelar di Gedung Samantha Krida. Periode I sampai VI sudah berlangsung
+          pada September dan Oktober 2026. Periode VII digelar Sabtu 14 November 2026 dan periode VIII Minggu
+          15 November 2026, pukul 07.30 sampai 11.30. Pendaftaran wisuda dilakukan melalui bagian akademik
+          fakultas masing-masing.
+        sumber: [ub_wisuda56, ub_wisuda78]
+        berlaku_hingga: "2026-11-15"
+
       - sub: Ketentuan wisuda
         teks: >-
           Setiap wisudawan boleh membawa paling banyak dua pendamping. Undangan elektronik berbentuk QR code diunduh dari SIAM,
-          dan pendamping masuk Gedung Samantha Krida melalui Pintu A atau Pintu D. Toga bisa dipesan melalui KPRI UB,
+          dan pendamping masuk Gedung Samantha Krida melalui Pintu A atau Pintu D. Toga wajib dipakai sesuai Peraturan Rektor Nomor 59 Tahun 2026 dan bisa dipesan melalui KPRI UB,
           dengan warna kerah sesuai identitas fakultas.
         sumber: [ub_wisuda56]
 
@@ -1154,12 +1155,12 @@ faq:
     berlaku_hingga: "2027-07-30"
   - id: wisuda-berikutnya
     q: Kapan wisuda UB berikutnya?
-    variasi: [kapan wisuda UB, jadwal wisuda Brawijaya, wisuda periode berikutnya kapan, wisuda bulan Oktober tanggal berapa]
+    variasi: [kapan wisuda UB, jadwal wisuda Brawijaya, wisuda periode berikutnya kapan, wisuda bulan November tanggal berapa]
     a: >-
-      Wisuda periode lima dan enam tahun akademik 2026/2027 digelar pada 10 dan 11 Oktober 2026 di Gedung Samantha Krida.
-      Jadwal periode berikutnya belum diumumkan.
-    sumber: [ub_wisuda56]
-    berlaku_hingga: "2026-10-11"
+      Wisuda periode tujuh dan delapan tahun akademik 2026/2027 digelar pada Sabtu 14 November dan Minggu 15 November 2026,
+      pukul 07.30 sampai 11.30, di Gedung Samantha Krida.
+    sumber: [ub_wisuda78]
+    berlaku_hingga: "2026-11-15"
   - id: tempat-wisuda
     q: Di mana wisuda UB diadakan?
     variasi: [wisuda UB di gedung apa, lokasi wisuda Brawijaya, cara daftar wisuda UB]
@@ -1176,8 +1177,8 @@ faq:
   - id: toga
     q: Di mana memesan toga wisuda UB?
     variasi: [pesan toga di mana, beli toga wisuda UB, warna kerah toga UB]
-    a: Toga bisa dipesan melalui KPRI UB, dengan warna kerah sesuai identitas fakultas.
-    sumber: [ub_wisuda56]
+    a: Toga wajib dipakai sesuai Peraturan Rektor Nomor 59 Tahun 2026 dan bisa dipesan melalui KPRI UB, dengan warna kerah sesuai identitas fakultas.
+    sumber: [ub_wisuda56, ub_wisuda78]
 
   # ---------------------------------------------------------------- fasilitas
   - id: fasilitas-kesehatan
@@ -1445,6 +1446,7 @@ sumber:
   ub_ukm: {judul: "Unit Aktivitas Mahasiswa UB", url: "https://www.ub.ac.id/id/campus-life/student-activity-unit/"}
   ub_lib: {judul: "Perpustakaan UB", url: "https://lib.ub.ac.id/"}
   ub_wisuda56: {judul: "Pelaksanaan Wisuda Periode V dan VI TA 2026/2027 (16 Sep 2026)", url: "https://www.ub.ac.id/en/pelaksanaan-wisuda-periode-v-dan-periode-vi-ta-2026-2027/"}
+  ub_wisuda78: {judul: "Pelaksanaan Wisuda Periode VII dan VIII TA 2026/2027 (16 Okt 2026)", url: "https://www.ub.ac.id/en/pelaksanaan-wisuda-periode-vii-dan-periode-viii-ta-2026-2027/"}
   kalender_akademik: {judul: "Kalender Akademik DALA UB TA 2026/2027", url: "https://akademik.ub.ac.id/kalender-akademik/"}
   mwa_rektor: {judul: "MWA UB: Prof. Widodo Rektor 2022-2027", url: "https://mwa.ub.ac.id/prof-widodo-ditetapkan-sebagai-rektor-ub-2/"}
   prasetya_ptnbh: {judul: "Prasetya: UB Menjadi PTN Badan Hukum (27 Okt 2021)", url: "https://prasetya.ub.ac.id/universitas-brawijaya-menjadi-ptn-badan-hukum/"}

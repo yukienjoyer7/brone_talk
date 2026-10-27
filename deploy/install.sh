@@ -8,7 +8,11 @@ cd "$REPO"
 
 python3 -m venv .venv
 .venv/bin/pip install --quiet --upgrade pip
-.venv/bin/pip install --quiet -e .
+.venv/bin/pip install --quiet -e ".[kws]"
+# openwakeword tanpa dependensi: tflite-runtime tidak ada untuk py3.12, BRONE hanya memakai ONNX
+.venv/bin/pip install --quiet --no-deps openwakeword==0.6.0
+# melspectrogram.onnx + embedding_model.onnx bawaan openwakeword (sekali, butuh internet)
+.venv/bin/python -c "import openwakeword.utils as u; u.download_models(model_names=['__none__'])" || true
 
 # Model tidak ada di git. Pakai folder model yang sudah ada di NUC, atau isi manual (lihat docs/deployment.md).
 if [ ! -e models ]; then

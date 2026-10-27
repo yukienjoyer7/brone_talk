@@ -22,6 +22,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["ruff>=0.6"]
+# wake word "halo brone". openwakeword sendiri dipasang --no-deps (deploy/install.sh): ia menuntut
+# tflite-runtime di Linux yang tidak punya wheel py3.12; BRONE memakai model ONNX saja.
+kws = ["scikit-learn", "tqdm", "requests"]
 
 [project.scripts]
 brone-talk = "brone_talk.cli:main"

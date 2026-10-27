@@ -69,6 +69,12 @@ class AudioConfig:
     noise_reduce: bool = False  # BRONE_NOISE_REDUCE
     noise_prop_decrease: float = 0.9  # BRONE_NOISE_PROP_DECREASE
     noise_stationary: bool = False  # BRONE_NOISE_STATIONARY
+    # Wake word "halo brone" (openWakeWord) = default sejak 26 Okt 2026: bangun, jendela 60 s, interupsi.
+    # BRONE_KWS_MODEL kosong = mode lama (nama disebut di teks STT).
+    kws_model: str = str(ROOT / "models" / "kws" / "halo_brone.onnx")  # BRONE_KWS_MODEL: kosong = mode teks
+    kws_threshold: float = 0.5  # BRONE_KWS_THRESHOLD
+    kws_window_s: float = 60.0  # BRONE_KWS_WINDOW_SECONDS: jendela percakapan tanpa wake word sejak "Ya?"
+    kws_interrupt: bool = True  # BRONE_KWS_INTERRUPT: "halo brone" menghentikan jawaban
 
 
 
@@ -98,7 +104,9 @@ class MaiConfig:
     timeout_s: float = 3.5  # BRONE_MAI_TIMEOUT_SECONDS
     connect_timeout_s: float = 6.0  # BRONE_MAI_CONNECT_TIMEOUT_SECONDS
     dns_timeout_s: float = 1.5  # BRONE_MAI_DNS_TIMEOUT_SECONDS
-    keepalive_s: float = 20.0  # BRONE_MAI_KEEPALIVE_SECONDS
+    # Pemantau internet (26 Okt 2026): rute default + ping MAI tiap keepalive_s; gagal -> STT langsung whisper.
+    keepalive_s: float = 5.0  # BRONE_MAI_KEEPALIVE_SECONDS
+    probe_timeout_s: float = 2.0  # BRONE_MAI_PROBE_TIMEOUT_SECONDS: batas balasan ping
     cooldown_s: float = 30.0  # BRONE_MAI_COOLDOWN_SECONDS
     auth_cooldown_s: float = 600.0  # BRONE_MAI_AUTH_COOLDOWN_SECONDS
     ws_max_age_s: float = 600.0  # BRONE_MAI_WS_MAX_AGE_SECONDS
@@ -111,8 +119,11 @@ class MaiConfig:
 @dataclass(frozen=True)
 class TtsConfig:
     piper_bin: str = str(Path(sys.executable).parent / "piper")  # BRONE_PIPER_BIN
-    voice_model: Path = ROOT / "models" / "voices" / "id_ID-news_tts-medium.onnx"  # BRONE_PIPER_VOICE
-    voice_config: Path = ROOT / "models" / "voices" / "id_ID-news_tts-medium.onnx.json"  # BRONE_PIPER_CONFIG
+    # Default sejak 26 Okt 2026: suara Bron fine-tune D21. Suara lama: deploy/tts_voice.sh lama
+    voice_model: Path = ROOT / "models" / "voices" / "id_ID-brone_D21-medium.onnx"  # BRONE_PIPER_VOICE
+    voice_config: Path = ROOT / "models" / "voices" / "id_ID-brone_D21-medium.onnx.json"  # BRONE_PIPER_CONFIG
+    # Kosong = pakai clean_for_speech (untuk suara lama news_tts)
+    textnorm_dir: str = str(ROOT / "models" / "voices" / "brone_D21_teks")  # BRONE_TTS_TEXTNORM: kosong = news_tts
 
 
 @dataclass(frozen=True)
@@ -191,6 +202,10 @@ class Settings:
             noise_reduce=_flag(env, "BRONE_NOISE_REDUCE", a.noise_reduce),
             noise_prop_decrease=_float(env, "BRONE_NOISE_PROP_DECREASE", a.noise_prop_decrease),
             noise_stationary=_flag(env, "BRONE_NOISE_STATIONARY", a.noise_stationary),
+            kws_model=_str(env, "BRONE_KWS_MODEL", a.kws_model),
+            kws_threshold=_float(env, "BRONE_KWS_THRESHOLD", a.kws_threshold),
+            kws_window_s=_float(env, "BRONE_KWS_WINDOW_SECONDS", a.kws_window_s),
+            kws_interrupt=_flag(env, "BRONE_KWS_INTERRUPT", a.kws_interrupt),
         )
         stt = SttConfig(
             backend=_str(env, "BRONE_STT_BACKEND", s.backend).lower(),
@@ -215,6 +230,7 @@ class Settings:
             connect_timeout_s=_float(env, "BRONE_MAI_CONNECT_TIMEOUT_SECONDS", m.connect_timeout_s),
             dns_timeout_s=_float(env, "BRONE_MAI_DNS_TIMEOUT_SECONDS", m.dns_timeout_s),
             keepalive_s=_float(env, "BRONE_MAI_KEEPALIVE_SECONDS", m.keepalive_s),
+            probe_timeout_s=_float(env, "BRONE_MAI_PROBE_TIMEOUT_SECONDS", m.probe_timeout_s),
             cooldown_s=_float(env, "BRONE_MAI_COOLDOWN_SECONDS", m.cooldown_s),
             auth_cooldown_s=_float(env, "BRONE_MAI_AUTH_COOLDOWN_SECONDS", m.auth_cooldown_s),
             ws_max_age_s=_float(env, "BRONE_MAI_WS_MAX_AGE_SECONDS", m.ws_max_age_s),
@@ -227,6 +243,7 @@ class Settings:
             piper_bin=_str(env, "BRONE_PIPER_BIN", t.piper_bin),
             voice_model=Path(_str(env, "BRONE_PIPER_VOICE", str(t.voice_model))),
             voice_config=Path(_str(env, "BRONE_PIPER_CONFIG", str(t.voice_config))),
+            textnorm_dir=_str(env, "BRONE_TTS_TEXTNORM", t.textnorm_dir),
         )
         engine = EngineSettings(
             mode=_str(env, "BRONE_MODE", e.mode).lower(),

@@ -2,7 +2,7 @@
 PY ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 export PYTHONPATH := src
 
-.PHONY: install test golden ask self-test run lint clean
+.PHONY: install test golden ask self-test run lint kb-check clean
 
 install:  # pasang venv dan paket (tanpa menjalankan layanan)
 	bash deploy/install.sh
@@ -24,6 +24,9 @@ run:  # jalankan di terminal (di NUC biasanya lewat systemd)
 
 lint:  # pemeriksaan statis (ruff; pasang dengan: .venv/bin/pip install -e '.[dev]')
 	$(PY) -m ruff check src tests scripts
+
+kb-check:  # validasi KB + daftar data bertanggal yang sudah/hampir kedaluwarsa (jalankan tiap minggu)
+	$(PY) kb/build_kb.py --check
 
 clean:
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +

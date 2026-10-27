@@ -39,6 +39,10 @@ tidak dibawa ke sini; lihat `docs/decisions.md`.
 | `noise_reduce` | `False` | `BRONE_NOISE_REDUCE` |  |
 | `noise_prop_decrease` | `0.9` | `BRONE_NOISE_PROP_DECREASE` |  |
 | `noise_stationary` | `False` | `BRONE_NOISE_STATIONARY` |  |
+| `kws_model` | `str(ROOT / "models" / "kws" / "halo_brone.onnx")` | `BRONE_KWS_MODEL` | : kosong = mode teks |
+| `kws_threshold` | `0.5` | `BRONE_KWS_THRESHOLD` |  |
+| `kws_window_s` | `60.0` | `BRONE_KWS_WINDOW_SECONDS` | : jendela percakapan tanpa wake word sejak "Ya?" |
+| `kws_interrupt` | `True` | `BRONE_KWS_INTERRUPT` | : "halo brone" menghentikan jawaban |
 
 ## STT (whisper lokal)
 
@@ -72,7 +76,8 @@ tidak dibawa ke sini; lihat `docs/decisions.md`.
 | `timeout_s` | `3.5` | `BRONE_MAI_TIMEOUT_SECONDS` |  |
 | `connect_timeout_s` | `6.0` | `BRONE_MAI_CONNECT_TIMEOUT_SECONDS` |  |
 | `dns_timeout_s` | `1.5` | `BRONE_MAI_DNS_TIMEOUT_SECONDS` |  |
-| `keepalive_s` | `20.0` | `BRONE_MAI_KEEPALIVE_SECONDS` |  |
+| `keepalive_s` | `5.0` | `BRONE_MAI_KEEPALIVE_SECONDS` |  |
+| `probe_timeout_s` | `2.0` | `BRONE_MAI_PROBE_TIMEOUT_SECONDS` | : batas balasan ping |
 | `cooldown_s` | `30.0` | `BRONE_MAI_COOLDOWN_SECONDS` |  |
 | `auth_cooldown_s` | `600.0` | `BRONE_MAI_AUTH_COOLDOWN_SECONDS` |  |
 | `ws_max_age_s` | `600.0` | `BRONE_MAI_WS_MAX_AGE_SECONDS` |  |
@@ -88,8 +93,9 @@ tidak dibawa ke sini; lihat `docs/decisions.md`.
 | Field | Default | Variabel env | Keterangan |
 |---|---|---|---|
 | `piper_bin` | `str(Path(sys.executable).parent / "piper")` | `BRONE_PIPER_BIN` |  |
-| `voice_model` | `ROOT / "models" / "voices" / "id_ID-news_tts-medium.onnx"` | `BRONE_PIPER_VOICE` |  |
-| `voice_config` | `ROOT / "models" / "voices" / "id_ID-news_tts-medium.onnx.json"` | `BRONE_PIPER_CONFIG` |  |
+| `voice_model` | `ROOT / "models" / "voices" / "id_ID-brone_D21-medium.onnx"` | `BRONE_PIPER_VOICE` |  |
+| `voice_config` | `ROOT / "models" / "voices" / "id_ID-brone_D21-medium.onnx.json"` | `BRONE_PIPER_CONFIG` |  |
+| `textnorm_dir` | `str(ROOT / "models" / "voices" / "brone_D21_teks")` | `BRONE_TTS_TEXTNORM` | : kosong = news_tts |
 
 ## Mesin jawaban (FAQ, RAG, reranker, LLM)
 

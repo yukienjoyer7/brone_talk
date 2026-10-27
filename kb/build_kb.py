@@ -11,6 +11,7 @@ Pemakaian:  python build_kb.py            (bangun + validasi)
 from __future__ import annotations
 
 import csv
+import datetime as _dt
 import json
 import re
 import sys
@@ -361,6 +362,19 @@ def main(check_only: bool = False) -> int:
         title = unit.split("\n", 1)[0]
         if not title.startswith("BAGIAN 19") and not title.startswith("BAGIAN 9:") and len(unit) > TXT_UNIT_WARN:
             warnings.append(f"unit knowledge.txt '{title[:50]}' {len(unit)} karakter (> {TXT_UNIT_WARN})")
+
+    # data bertanggal: yang sudah basi tidak dipakai mesin; yang hampir basi perlu dijadwalkan
+    today = _dt.date.today().isoformat()
+    soon_limit = (_dt.date.today() + _dt.timedelta(days=14)).isoformat()
+    dated: dict[str, str] = {}
+    for rec in [*chunks, *faqs]:
+        if rec.get("berlaku_hingga"):
+            dated[rec["id"]] = str(rec["berlaku_hingga"])
+    for rid, until in sorted(dated.items(), key=lambda kv: kv[1]):
+        if until < today:
+            warnings.append(f"KEDALUWARSA sejak {until}: {rid} tidak dipakai mesin, perbarui datanya")
+        elif until <= soon_limit:
+            warnings.append(f"akan kedaluwarsa {until}: {rid}")
 
     for w in warnings:
         print("PERINGATAN:", w)

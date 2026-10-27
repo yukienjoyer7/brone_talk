@@ -25,7 +25,7 @@ class FakeRecorder:
         self.path = path
         self.queue = []
 
-    def record(self):
+    def record(self, start_s=0.0):
         return self.queue.pop(0) if self.queue else None
 
 
@@ -94,6 +94,8 @@ class TurnFlowTest(unittest.TestCase):
         self.svc.engine = FakeEngine()
         self.svc.session = Session()
         self.svc.runtime_dir = self.dir
+        self.svc.kws = self.svc.kws_interrupt = None  # mode lama: nama disebut di teks STT
+        self.svc._woken, self.svc._interrupt, self.svc._answer_thread = False, None, None
 
     def tearDown(self):
         self._tmp.cleanup()

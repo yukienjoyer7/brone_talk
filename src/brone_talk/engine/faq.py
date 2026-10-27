@@ -12,7 +12,7 @@ import yaml
 
 from brone_talk.engine.servers import Embedder
 from brone_talk.engine.entities import EntityMatcher, _YEAR_RE, wh_words
-from brone_talk.engine.util import LOG
+from brone_talk.engine.util import LOG, warn_stale
 
 @dataclass
 class FaqHit:
@@ -46,6 +46,7 @@ class FaqIndex:
         self.faqs: list[dict] = []
         if records is None:
             records = [json.loads(line) for line in faq_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        warn_stale("FAQ", records, today)
         for f in records:
             if f.get("berlaku_hingga") and str(f["berlaku_hingga"]) < today:
                 continue  # data basi tidak dijawab dari FAQ

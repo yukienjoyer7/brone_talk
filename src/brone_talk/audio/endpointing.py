@@ -54,12 +54,16 @@ class Utterance:
 
 class Endpointer:
     def __init__(self, vad: VadModel, telemetry: Telemetry, threshold: float,
-                 silence_limit: int, window_limit: int) -> None:
+                 silence_limit: int, window_limit: int, start_limit: int = 0, speech_limit: int = 0) -> None:
         self.vad = vad
         self.telemetry = telemetry
         self.threshold = threshold
         self.silence_limit = silence_limit
         self.window_limit = window_limit
+        self.start_limit = start_limit  # > 0: menyerah bila ucapan belum mulai setelah sekian jendela
+        # > 0: ucapan dipotong setelah sekian jendela SEJAK mulai bicara (window_limit ikut menghitung
+        # waktu tunggu sebelum bicara, jadi tanpa ini ucapan bisa max + start, 26 Okt 2026)
+        self.speech_limit = speech_limit
 
     def run(self, source: Iterable[np.ndarray]) -> Utterance:
         """Konsumsi jendela dari source sampai ucapan selesai atau batas jendela tercapai."""
@@ -68,6 +72,7 @@ class Endpointer:
         speaking = False
         silent_windows = 0
         ticks = 0
+        speech_tick = 0
         try:
             for tick, samples in enumerate(source):
                 ticks = tick + 1
@@ -82,6 +87,7 @@ class Endpointer:
                     preroll.append(samples)
                     if probability >= self.threshold:
                         speaking = True
+                        speech_tick = tick
                         utt.frames.extend(preroll)
                         utt.speech_start = (tick - len(preroll) + 1) * VAD_WINDOW
                         silent_windows = 0
@@ -95,7 +101,9 @@ class Endpointer:
                             break
                     else:
                         silent_windows = 0
-                if ticks >= self.window_limit:
+                if speaking and tick - speech_tick >= self.speech_limit > 0:
+                    break
+                if ticks >= self.window_limit or (not speaking and ticks >= self.start_limit > 0):
                     break
         finally:
             close = getattr(source, "close", None)

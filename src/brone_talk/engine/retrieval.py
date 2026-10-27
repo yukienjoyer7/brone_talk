@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
-from brone_talk.engine.util import norm_text
+from brone_talk.engine.util import norm_text, warn_stale
 from brone_talk.engine.servers import Embedder
 
 _BM25_STOP = {
@@ -34,11 +34,10 @@ def bm25_tokens(text: str) -> list[str]:
 class HybridRetriever:
     def __init__(self, chunks_path: Path, embedder: Embedder, k1: float = 1.4, b: float = 0.6) -> None:
         today = _dt.date.today().isoformat()
+        raw = [json.loads(line) for line in chunks_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        warn_stale("chunk", raw, today)
         self.chunks = []
-        for line in chunks_path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            c = json.loads(line)
+        for c in raw:
             if c.get("berlaku_hingga") and str(c["berlaku_hingga"]) < today:
                 continue
             c["_doc"] = f"{c['judul']}. {c['teks']}"

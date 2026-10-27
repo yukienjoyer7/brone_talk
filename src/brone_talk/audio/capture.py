@@ -2,6 +2,7 @@
 
 Dua jalur (ALSA lewat PipeWire, dan sounddevice) memakai satu Endpointer dan satu finalisasi.
 Rekaman 4 mic mentah untuk arah suara (kunci penanya) dihapus bersama kunci penanya (19 Okt 2026).
+stream() memberi aliran tanpa batas untuk wake word "halo brone" dan pemantau interupsi (Okt 2026).
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import subprocess
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Iterator
 from threading import Event
 
 import numpy as np
@@ -22,10 +24,13 @@ from scipy.io import wavfile
 from brone_talk.audio.constants import SAMPLE_RATE, VAD_WINDOW
 from brone_talk.audio.devices import device_name, parse_card_nodes, resolve_device
 from brone_talk.audio.endpointing import CaptureLost, Endpointer, StopCapture, Utterance
+from brone_talk.audio.kws import WakeHeard, WakeWord, watch
 from brone_talk.audio.vad import SileroVad
 from brone_talk.config import AudioConfig
 
 LOG = logging.getLogger("brone-talk")
+SETTLE_SILENCE_S = 0.3  # setelah wake word: tunggu jeda sebelum "Ya?" (ucapan sebelum "Ya?" dibuang)
+SETTLE_MAX_S = 2.0
 
 
 @dataclass
@@ -86,16 +91,83 @@ class Recorder:
         else:
             raise RuntimeError("BRONE_AUDIO_INPUT_BACKEND harus 'alsa' atau 'sounddevice'")
 
-    def _endpointer(self) -> tuple[Endpointer, int]:
+    def _endpointer(self, start_s: float = 0.0) -> tuple[Endpointer, int]:
         silence_limit = max(1, int(self.silence_s * SAMPLE_RATE / VAD_WINDOW))
-        window_limit = max(1, int(self.max_duration_s * SAMPLE_RATE / VAD_WINDOW))
-        return Endpointer(self.vad, self.telemetry, self.threshold, silence_limit, window_limit), window_limit
+        window_limit = max(1, int((self.max_duration_s + start_s) * SAMPLE_RATE / VAD_WINDOW))
+        start_limit = int(start_s * SAMPLE_RATE / VAD_WINDOW)
+        speech_limit = max(1, int(self.max_duration_s * SAMPLE_RATE / VAD_WINDOW))
+        endpointer = Endpointer(self.vad, self.telemetry, self.threshold, silence_limit, window_limit, start_limit,
+                                speech_limit)
+        return endpointer, window_limit
 
-    def record(self) -> Capture | None:
+    def record(self, start_s: float = 0.0, wake: WakeWord | None = None) -> Capture | None:
+        """Satu ucapan. start_s > 0: menyerah (None) bila ucapan belum mulai dalam start_s detik.
+
+        wake: model "halo brone" ikut mendengar selama merekam (jendela percakapan); terdengar ->
+        tunggu penutur diam lalu WakeHeard.
+        """
         self.vad.reset()
         if self.backend == "alsa":
-            return self._record_alsa()
-        return self._record_sounddevice()
+            return self._record_alsa(start_s, wake)
+        return self._record_sounddevice(start_s, wake)
+
+    # -- aliran tanpa batas (wake word, interupsi) ---------------------------------
+    def stream(self, stop: Event | None = None) -> Iterator[np.ndarray]:
+        """Blok VAD_WINDOW sampel sampai stop_event atau `stop` diset. Membuka mic sendiri."""
+        stops = [self.stop_event] + ([stop] if stop is not None else [])
+        if self.backend == "sounddevice":
+            with sd.InputStream(device=self.input_device, samplerate=SAMPLE_RATE, channels=1,
+                                dtype="float32", blocksize=VAD_WINDOW) as stream:
+                while not any(e.is_set() for e in stops):
+                    yield stream.read(VAD_WINDOW)[0][:, 0].copy()
+            return
+        process = self._spawn_arecord(self._select_pw_node(Path("/proc/asound/cards").read_text(encoding="utf-8")))
+        try:
+            while not any(e.is_set() for e in stops):
+                raw = process.stdout.read(VAD_WINDOW * 2)
+                if len(raw) != VAD_WINDOW * 2:
+                    raise CaptureLost()
+                yield np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
+        finally:
+            self._kill(process)
+
+    def wait_for_wake(self, detector) -> bool:
+        """Tidur sampai "halo brone" terdengar, lalu tunggu jeda bicara. False bila layanan berhenti."""
+        self.telemetry.stage("listening", "sleep")
+        blocks = self.stream()
+        try:
+            if not detector.listen(blocks):
+                return False
+            self._settle(blocks)
+            return True
+        except CaptureLost:
+            device = self._next_capture_device()
+            if not device:
+                raise RuntimeError("arecord berhenti saat menunggu wake word") from None
+            LOG.warning("Capture %s gagal, coba %s", self.alsa_device, device)
+            self.alsa_device = device
+            return False
+        finally:
+            blocks.close()
+
+    def wait_silence(self) -> None:
+        """Tunggu penutur diam sejenak (mis. setelah interupsi "halo brone" di tengah jawaban)."""
+        blocks = self.stream()
+        try:
+            self._settle(blocks)
+        except CaptureLost:
+            pass
+        finally:
+            blocks.close()
+
+    def _settle(self, blocks: Iterator[np.ndarray]) -> None:
+        self.vad.reset()
+        need = max(1, int(SETTLE_SILENCE_S * SAMPLE_RATE / VAD_WINDOW))
+        quiet = 0
+        for tick, samples in enumerate(blocks, 1):
+            quiet = quiet + 1 if self.vad.probability(samples) < self.threshold else 0
+            if quiet >= need or tick * VAD_WINDOW >= SETTLE_MAX_S * SAMPLE_RATE:
+                return
 
     # -- sumber audio ---------------------------------------------------------
     def _sounddevice_blocks(self, window_limit: int):
@@ -119,45 +191,43 @@ class Recorder:
             yield np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
 
     # -- jalur perekaman --------------------------------------------------------
-    def _record_sounddevice(self) -> Capture | None:
-        endpointer, window_limit = self._endpointer()
+    def _record_sounddevice(self, start_s: float = 0.0, wake: WakeWord | None = None) -> Capture | None:
+        endpointer, window_limit = self._endpointer(start_s)
         self.telemetry.stage("listening", "start", device=device_name(self.input_device), sample_rate=SAMPLE_RATE)
         LOG.info("Mendengarkan dari %s", device_name(self.input_device))
+        blocks = self._sounddevice_blocks(window_limit)
         try:
-            utt = endpointer.run(self._sounddevice_blocks(window_limit))
+            utt = endpointer.run(watch(blocks, wake) if wake else blocks)
         except StopCapture:
             return None
         return self._finish(utt)
 
-    def _record_alsa(self) -> Capture | None:
-        endpointer, window_limit = self._endpointer()
+    def _record_alsa(self, start_s: float = 0.0, wake: WakeWord | None = None) -> Capture | None:
+        endpointer, window_limit = self._endpointer(start_s)
         cards = Path("/proc/asound/cards").read_text(encoding="utf-8")
         pw_node = self._select_pw_node(cards)
-        command = [self.arecord_bin, "--quiet", "--device", self.alsa_device,
-                   "--format=S16_LE", f"--rate={SAMPLE_RATE}", "--channels=1", "--file-type=raw"]
         self.telemetry.stage("listening", "start", device=self.alsa_device, sample_rate=SAMPLE_RATE)
         LOG.info("Mendengarkan dari ALSA %s", self.alsa_device)
-        env = os.environ.copy()
-        if pw_node:
-            env["PIPEWIRE_NODE"] = pw_node
-        process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                   stderr=subprocess.DEVNULL, env=env)
+        process = self._spawn_arecord(pw_node)
         utt: Utterance | None = None
-        stopped = lost = False
+        stopped = lost = woke = False
         try:
-            utt = endpointer.run(self._pipe_blocks(process, window_limit))
+            blocks = self._pipe_blocks(process, window_limit)
+            utt = endpointer.run(watch(blocks, wake) if wake else blocks)
         except StopCapture:
             stopped = True
         except CaptureLost:
             lost = True
+        except WakeHeard:
+            woke = True
+            try:  # sisa ucapan setelah "halo brone" dibuang, sama seperti saat bangun dari tidur
+                self._settle(self._pipe_blocks(process, window_limit))
+            except (StopCapture, CaptureLost):
+                pass
         finally:
-            if process.poll() is None:
-                process.terminate()
-                try:
-                    process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait(timeout=2)
+            self._kill(process)
+        if woke:
+            raise WakeHeard()
         if stopped:
             return None
         if lost:
@@ -165,7 +235,7 @@ class Recorder:
             if device:
                 LOG.warning("Capture %s gagal, coba %s", self.alsa_device, device)
                 self.alsa_device = device
-                return self._record_alsa()
+                return self._record_alsa(start_s, wake)
             raise RuntimeError("arecord berhenti sebelum satu window audio diterima")
         return self._finish(utt)
 
@@ -201,6 +271,25 @@ class Recorder:
         return Capture(path=path, duration_s=duration_s, peak_rms=utt.peak_rms, audio=audio)
 
     # -- helper -------------------------------------------------------------------
+    def _spawn_arecord(self, pw_node: str) -> subprocess.Popen:
+        command = [self.arecord_bin, "--quiet", "--device", self.alsa_device,
+                   "--format=S16_LE", f"--rate={SAMPLE_RATE}", "--channels=1", "--file-type=raw"]
+        env = os.environ.copy()
+        if pw_node:
+            env["PIPEWIRE_NODE"] = pw_node
+        return subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL, env=env)
+
+    @staticmethod
+    def _kill(process: subprocess.Popen) -> None:
+        if process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=2)
+
     def _next_capture_device(self) -> str:
         """Kandidat device berikutnya kalau arecord gagal membuka device."""
         # hw:Array (XVF3800) dipegang PipeWire, jadi fallback plughw langsung

@@ -340,15 +340,20 @@ def normalize_for_speech(text: str) -> str:
     return re.sub(r"\s{2,}", " ", text).strip()
 
 
-def clean_for_speech(text: str) -> str:
-    """Make model output pleasant for TTS without reading markdown aloud."""
+def strip_markdown(text: str) -> str:
+    """Buang markdown dari jawaban LLM supaya tidak ikut dibacakan."""
     text = re.sub(r"```.*?```", " ", text, flags=re.S)
     text = re.sub(r"`([^`]*)`", r"\1", text)
     text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
     text = re.sub(r"\*([^*]+)\*", r"\1", text)
     text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
     text = re.sub(r"^\s*[#>\-*+]\s+", "", text, flags=re.M)
-    text = re.sub(r"\s+", " ", text).strip()
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def clean_for_speech(text: str) -> str:
+    """Make model output pleasant for TTS without reading markdown aloud."""
+    text = strip_markdown(text)
     text, url_placeholders = apply_website_pronunciation(text)
     # Sebelum apply_pronunciation_fixes: hasil eja di sini ("er te", "es es i",
     # "kosong tiga") tidak mengandung kunci PRONOUNCE_MAP, jadi aman.
