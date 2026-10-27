@@ -106,7 +106,7 @@ Isi kosong (`BRONE_KWS_MODEL=`) = mode lama (nama disebut di teks STT). Model ti
   menampilkan daftar yang sama.
 - **Tidak ada semantic cache.** Jawaban LLM tidak disimpan untuk dipakai ulang, supaya tidak ada
   jawaban basi.
-- **Cloud 5 detik** (produksi). Kode lama default 8 detik. Lewat batas, pindah ke LLM lokal.
+- **Cloud 5 detik** (produksi). Kode lama default 8 detik. Lewat batas, pertanyaan ditolak; mode auto tidak memakai LLM lokal.
 - **Riwayat tidak dipakai.** `BRONE_HISTORY_MESSAGES` ada di unit lama tetapi mesin v4 tidak memakai
   riwayat percakapan; hanya pertanyaan sebelumnya yang dipakai untuk pertanyaan pendek.
 

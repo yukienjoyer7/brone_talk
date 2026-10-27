@@ -16,7 +16,7 @@ dan bisa diajak ngobrol santai. Telemetri tiap tahap dikirim lewat MQTT ke Jetso
      ("halo brone" lagi di dalam jendela = "Ya?" lagi, jendela dimulai ulang)
   -> STT: MAI-Transcribe-2 (cloud)  | cadangan faster-whisper small (lokal)
   -> mesin jawaban: jam | FAQ semantik (bge-m3) | obrolan tetap | RAG BM25+embedding
-                    -> reranker -> LLM DeepSeek (cadangan LFM2.5 lokal) -> cek grounding
+                    -> reranker -> LLM DeepSeek (tolak jika gagal) -> cek grounding
   -> TTS Piper -> speaker -> jendela habis -> kembali tidur
 "halo brone" saat Bron bicara = interupsi (belum bekerja di robot, lihat Masalah)
 ```
@@ -41,7 +41,7 @@ dan bisa diajak ngobrol santai. Telemetri tiap tahap dikirim lewat MQTT ke Jetso
 **Kekuatan**
 
 - Mesin jawaban berlapis: FAQ tanpa LLM, reranker sebagai gerbang, grounding anti-karangan.
-- Ada cadangan di setiap tahap: MAI→whisper, DeepSeek→LFM2.5, mic wireless→XVF3800.
+- Ada cadangan untuk STT (MAI→whisper) dan mikrofon (wireless→XVF3800).
 - Kode modular, teruji, dan terdokumentasi.
 
 **Masalah utama**

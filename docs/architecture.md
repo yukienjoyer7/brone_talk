@@ -37,7 +37,7 @@ Urutan per pertanyaan (`engine/answer.py`, `AnswerEngine.answer`):
 5. **Retrieval hybrid** (`engine/retrieval.py`): BM25 dan embedding, digabung dengan RRF.
 6. **Reranker** bge-reranker-v2-m3 (`servers.py`). Skor di bawah `BRONE_RERANK_MIN` -> tidak ada
    data UB: obrolan dijawab LLM persona (`CHAT_PROMPT`), permintaan info ditolak ("belum punya informasi").
-7. **LLM**: DeepSeek lebih dulu; gagal atau lewat batas waktu -> LFM2.5-2.6B lokal (llama.cpp).
+7. **LLM**: dalam mode auto, DeepSeek digunakan; jika gagal, lewat batas waktu, atau menghasilkan JSON tidak valid, pertanyaan ditolak. Mode local tetap tersedia secara eksplisit.
    Prompt dan format JSON di `engine/llm.py`.
 8. **Cek grounding** (`engine/grounding.py`): angka dan nama di jawaban harus ada di konteks,
    bila tidak jawaban diganti penolakan.

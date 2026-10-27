@@ -5,7 +5,7 @@ pengguna. Nilai ini juga menjadi **default di `config.py`** dan `deploy/systemd/
 
 | Variabel | Nilai | Catatan |
 |---|---|---|
-| BRONE_MODE | auto | cloud DeepSeek, lalu LFM2.5 lokal |
+| BRONE_MODE | auto | cloud DeepSeek; jika gagal, pertanyaan ditolak |
 | BRONE_CLOUD_TIMEOUT_SECONDS | 5 | |
 | BRONE_STT_BACKEND | mai | MAI-Transcribe-2, cadangan whisper |
 | BRONE_WHISPER_MODEL | models/faster-whisper-small | |
@@ -31,8 +31,8 @@ Rahasia (BRONE_DEEPSEEK_API_KEY, BRONE_MAI_API_KEY) tetap di `~/.config/brone-ta
 # Konfigurasi efektif produksi (baseline Fase 0)
 
 Diambil dari `systemctl --user show brone-talk-v4.service` pada 19 Okt 2026, lalu
-drop-in dan EnvironmentFile digabung. Nilai rahasia disensor. Ini titik acuan
-refactor: perilaku repo baru harus sama dengan tabel ini, kecuali yang dicatat di bawah.
+drop-in dan EnvironmentFile digabung. Nilai rahasia disensor. Ini titik acuan historis
+refactor; mode auto sekarang menolak saat cloud gagal, tanpa cadangan LLM lokal.
 
 ## Variabel yang berpengaruh pada v4
 

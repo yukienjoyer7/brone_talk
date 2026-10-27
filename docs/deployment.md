@@ -6,7 +6,7 @@ menguji di samping versi yang sedang jalan, lalu langkah cutover.
 ## Prasyarat
 
 - `~/brone-talk-v4` dan `~/brone-talk` tetap ada (rujukan dan jalan mundur).
-- Layanan llama.cpp hidup: `brone-v4-embed` (8082), `brone-v4-rerank` (8083), `brone-v4-llm` (8081).
+- Layanan llama.cpp hidup: `brone-v4-embed` (8082), `brone-v4-rerank` (8083). `brone-v4-llm` (8081) hanya diperlukan untuk mode local eksplisit.
 - Model: `~/brone-talk/models` (whisper, Piper, Silero VAD, CAM++). Model tidak ada di git.
 - Konfigurasi PipeWire `10-brone-xvf3800.conf` dan `20-brone-rnnoise-wireless.conf` sudah terpasang.
   Salinan repo ada di `deploy/pipewire/`, dengan serial yang disensor. Jangan timpa yang di NUC.

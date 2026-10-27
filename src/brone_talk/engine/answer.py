@@ -52,7 +52,7 @@ _FUN_REQUESTS = [
 # LLM obrolan kadang tetap memakai "aku"/"saya" untuk dirinya; tim memilih "Bron"
 _SELF_RE = re.compile(r"\b(aku|saya)\b", re.I)
 
-# galat backend LLM yang membuat kita mencoba backend berikutnya
+# galat backend LLM yang menghasilkan penolakan
 _LLM_ERRORS = (OSError, urllib.error.URLError, ValueError, KeyError)
 
 
@@ -135,8 +135,8 @@ class AnswerEngine:
         self.retriever.build()
         self.embedder.save()
         self.reranker.start(self.cfg.startup_wait_s)
-        if self.cfg.mode in ("auto", "local") and not wait_for_server(self.cfg.local_url, self.cfg.startup_wait_s):
-            LOG.warning("LLM lokal %s belum siap; cadangan lokal tidak tersedia sampai server hidup",
+        if self.cfg.mode == "local" and not wait_for_server(self.cfg.local_url, self.cfg.startup_wait_s):
+            LOG.warning("LLM lokal %s belum siap sampai server hidup",
                         self.cfg.local_url)
         LOG.info("Mesin jawaban siap dalam %.1fs: %d FAQ (%d kalimat), %d obrolan, %d chunk, cloud=%s, mode=%s",
                  time.perf_counter() - t0, len(self.faq.faqs), self.faq.sentence_count,
@@ -172,17 +172,18 @@ class AnswerEngine:
 
     # -- inti
     def _backends(self) -> list[LLMBackend]:
-        chosen = {"auto": [self.cloud, self.local], "cloud": [self.cloud], "local": [self.local]}[self.cfg.mode]
+        chosen = {"auto": [self.cloud], "cloud": [self.cloud], "local": [self.local]}[self.cfg.mode]
         return [b for b in chosen if b is not None]
 
     def _ask_llm(self, messages: list[dict], rec: dict, key: str,
                  temperature: float = 0.1) -> tuple[dict | None, list[str]]:
-        """Coba backend berurutan (cloud lalu lokal) sampai satu memberi JSON yang valid.
+        """Panggil backend sesuai mode dan terima hanya JSON yang valid.
 
         rec[key] = backend terakhir yang menjawab; kembalian (json atau None, daftar galat).
         """
-        errors: list[str] = []
-        for be in self._backends():
+        backends = self._backends()
+        errors: list[str] = [] if backends else ["LLM tidak tersedia"]
+        for be in backends:
             try:
                 raw, stats = be.chat(messages, temperature=temperature)
             except _LLM_ERRORS as exc:
@@ -234,7 +235,7 @@ class AnswerEngine:
         """Jawab satu ucapan. replying_to: kata-kata Bron yang sedang ditanggapi (jendela tanya-balik), atau "".
 
         Urutan: hiburan (kata kunci) -> FAQ / obrolan berjawaban tetap -> permintaan gerakan
-        -> RAG + LLM (cloud lalu lokal) -> grounding. Tanpa data UB, obrolan dijawab LLM persona.
+        -> RAG + LLM (cloud dalam mode auto) -> grounding. Tanpa data UB, obrolan dijawab LLM persona.
         """
         t0 = time.perf_counter()
         text = text.strip()

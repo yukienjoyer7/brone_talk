@@ -28,7 +28,7 @@ BRONE Talk adalah pipeline suara robot asisten Universitas Brawijaya: robot mend
 | Unit | Isi | RAM |
 |---|---|---|
 | `brone-talk.service` | `brone-talk run` (Python 3.12, paket `src/brone_talk`) | ~1,0 GB |
-| `brone-v4-llm.service` | llama.cpp LFM2.5-2.6B Q4_K_M, port 8081 (LLM cadangan) | ~3,0 GB |
+| `brone-v4-llm.service` | llama.cpp LFM2.5-2.6B Q4_K_M, port 8081 (mode local eksplisit) | ~3,0 GB |
 | `brone-v4-embed.service` | llama.cpp bge-m3 F16, port 8082 (embedding) | ~1,5 GB |
 | `brone-v4-rerank.service` | llama.cpp bge-reranker-v2-m3 Q8_0, port 8083 | ~0,9 GB |
 
@@ -46,7 +46,7 @@ TIDUR: openWakeWord "halo brone" (halo_brone.onnx, thr 0,5) mendengar terus, STT
   -> mesin jawaban:
        jam sistem | FAQ semantik (bge-m3) + pengaman | obrolan tetap (smalltalk.yaml)
        | perintah gerak | RAG hybrid BM25+embedding -> reranker -> LLM DeepSeek (5 s)
-       -> cadangan LFM2.5 lokal -> cek grounding | persona obrolan LLM
+       -> cek grounding (tolak jika LLM gagal) | persona obrolan LLM
   -> TTS Piper (suara D21 fine-tune BRONE sejak 26 Okt 19:35) -> speaker
   -> bila Bron bertanya balik: 1 tanggapan tanpa wake word dalam 8 s, lainnya kembali TIDUR
 Selama berpikir/berbicara: thread pemantau KWS kedua = interupsi "halo brone" (lihat temuan T1)
@@ -108,7 +108,7 @@ fixture tidak ada di NUC). `ruff check` → 1 pelanggaran (E501, `tts/lexnorm.py
 1. **Mesin jawaban berlapis dan hemat.** Pertanyaan yang ada di FAQ dijawab ~60 ms tanpa LLM.
    LLM hanya dipanggil bila reranker yakin ada konteks UB. Pengaman FAQ (peran, fakultas, tahun, kata
    tanya) dan cek grounding (angka/nama harus ada di konteks) mencegah jawaban karangan.
-2. **Cadangan di setiap tahap.** MAI → whisper lokal, DeepSeek → LFM2.5 lokal, mic wireless → XVF3800.
+2. **Cadangan STT dan mikrofon.** MAI → whisper lokal, mic wireless → XVF3800.
    Pemantau internet memindahkan STT ke whisper sebelum ucapan berikutnya.
 3. **Wake word menutup masalah lama.** Jawaban salah karena nama disebut di tengah obrolan hilang,
    dan biaya MAI turun karena audio hanya dikirim setelah dibangunkan. Uji offline model: 39/39 klip
