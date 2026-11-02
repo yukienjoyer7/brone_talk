@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from brone_talk import messages
+from brone_talk.config import Settings
 from brone_talk.engine.answer import AnswerEngine, EngineConfig, is_motion_command
 from brone_talk.engine.faq import load_smalltalk
 
@@ -54,7 +55,7 @@ class ChatOrRefuse(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp())
         eng = object.__new__(AnswerEngine)
         eng.cfg = EngineConfig(kb_dir=ROOT / "kb", runtime_dir=tmp, mode=mode)
-        eng.cloud, eng.local = FakeBackend(raw), None
+        eng.cloud = FakeBackend(raw)
         eng.turn_log = tmp / "turns.jsonl"
         return eng
 
@@ -67,6 +68,10 @@ class ChatOrRefuse(unittest.TestCase):
                                '"expression": "happy", "tanya_balik": true}')
         self.assertEqual(res["route"], "obrolan_cloud")
         self.assertTrue(res["ask_back"])
+
+    def test_cloud_mode_uses_cloud(self):
+        _, res = self.run_chat('{"jenis": "obrolan", "response": "Halo!"}', mode="cloud")
+        self.assertEqual(res["route"], "obrolan_cloud")
 
     def test_info_request_is_still_refused(self):
         _, res = self.run_chat('{"jenis": "info", "response": ""}', text="kapan FILKOM berdiri")
@@ -92,13 +97,12 @@ class ChatOrRefuse(unittest.TestCase):
         _, res = self.run_chat('{"jenis": "obrolan", "response": "Aku robot, jadi saya tidak main bola."}')
         self.assertEqual(res["response"], "Bron robot, jadi Bron tidak main bola.")
 
-    def test_cloud_failure_never_uses_local_for_chat_or_rag(self):
+    def test_cloud_failure_refuses_chat_and_rag(self):
         for failure in (OSError("offline"), "invalid JSON"):
             with self.subTest(failure=failure):
                 eng = self.engine("")
                 eng.cloud.chat = Mock(side_effect=failure) if isinstance(failure, Exception) else Mock(
                     return_value=(failure, {}))
-                eng.local = Mock()
                 chat = eng._chat_or_refuse("apa kabar", "", "tolak_tidak_ada_info", {}, 0.0)
                 self.assertEqual(chat["response"], messages.MSG_NO_INFO)
                 eng.retriever = SimpleNamespace(search=lambda *a, **kw: [0],
@@ -107,27 +111,24 @@ class ChatOrRefuse(unittest.TestCase):
                 eng.prev_question = ""
                 rag = eng._rag_answer("tentang UB", None, "", {}, 0.0)
                 self.assertIn(rag["response"], (messages.MSG_SERVICE_DOWN, messages.MSG_NOT_UNDERSTOOD))
-                eng.local.chat.assert_not_called()
 
     def test_missing_cloud_refuses_rag(self):
         eng = self.engine("")
         eng.cloud = None
-        eng.local = Mock()
         eng.retriever = SimpleNamespace(search=lambda *a, **kw: [0],
                                         chunks=[{"_doc": "UB", "id": "1", "judul": "UB", "teks": "UB"}])
         eng.reranker = SimpleNamespace(score=lambda *a: [1.0])
         eng.prev_question = ""
         result = eng._rag_answer("tentang UB", None, "", {}, 0.0)
         self.assertEqual(result["response"], messages.MSG_SERVICE_DOWN)
-        eng.local.chat.assert_not_called()
 
-    def test_explicit_local_mode_still_uses_local(self):
-        eng = self.engine("", mode="local")
-        eng.local = FakeBackend('{"jenis": "obrolan", "response": "Halo!"}')
-        result = eng._chat_or_refuse("apa kabar", "", "tolak", {}, 0.0)
-        self.assertEqual(result["response"], "Halo!")
-        self.assertIsNotNone(eng.local.messages)
-        self.assertIsNone(eng.cloud.messages)
+    def test_removed_and_invalid_modes_are_rejected(self):
+        for mode in ("local", "typo"):
+            with self.subTest(mode=mode):
+                with self.assertRaisesRegex(ValueError, "BRONE_MODE"):
+                    Settings.from_env({"BRONE_MODE": mode})
+                with self.assertRaisesRegex(ValueError, "BRONE_MODE"):
+                    EngineConfig(kb_dir=ROOT / "kb", runtime_dir=ROOT, mode=mode)
 
     def test_faq_mode_skips_llm(self):
         eng, res = self.run_chat('{"jenis": "obrolan", "response": "Halo!"}', mode="faq")

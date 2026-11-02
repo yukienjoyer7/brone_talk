@@ -103,14 +103,11 @@ tidak dibawa ke sini; lihat `docs/decisions.md`.
 
 | Field | Default | Variabel env | Keterangan |
 |---|---|---|---|
-| `mode` | `"auto"` | `BRONE_MODE` | : auto | cloud | local | faq |
+| `mode` | `"auto"` | `BRONE_MODE` | : auto, cloud, atau faq |
 | `cloud_key` | `""` | `BRONE_DEEPSEEK_API_KEY` | (dari deepseek.env) |
 | `cloud_url` | `"https://api.deepseek.com/chat/completions"` | `BRONE_DEEPSEEK_URL` |  |
 | `cloud_model` | `"deepseek-flash"` | `BRONE_DEEPSEEK_MODEL` |  |
 | `cloud_timeout_s` | `5.0` | `BRONE_CLOUD_TIMEOUT_SECONDS` | (kode lama: 8) |
-| `local_url` | `"http://127.0.0.1:8081"` | `BRONE_LOCAL_URL` |  |
-| `local_model` | `"lfm2.5-2.6b"` | `BRONE_LOCAL_MODEL` |  |
-| `local_timeout_s` | `25.0` | `BRONE_LOCAL_TIMEOUT_SECONDS` |  |
 | `embed_url` | `"http://127.0.0.1:8082"` | `BRONE_EMBED_URL` |  |
 | `rerank_url` | `"http://127.0.0.1:8083"` | `BRONE_RERANK_URL` |  |
 | `rerank_min` | `0.30` | `BRONE_RERANK_MIN` |  |

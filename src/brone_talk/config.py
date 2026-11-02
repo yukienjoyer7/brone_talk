@@ -126,18 +126,20 @@ class TtsConfig:
     textnorm_dir: str = str(ROOT / "models" / "voices" / "brone_D21_teks")  # BRONE_TTS_TEXTNORM: kosong = news_tts
 
 
+def validate_engine_mode(mode: str) -> None:
+    if mode not in {"auto", "cloud", "faq"}:
+        raise ValueError(f"BRONE_MODE tidak valid: {mode!r}; gunakan auto, cloud, atau faq")
+
+
 @dataclass(frozen=True)
 class EngineSettings:
     """Pengaturan mesin jawaban (brone_talk.engine.answer.EngineConfig), diisi di sini."""
 
-    mode: str = "auto"  # BRONE_MODE: auto | cloud | local | faq
+    mode: str = "auto"  # BRONE_MODE: auto, cloud, atau faq
     cloud_key: str = ""  # BRONE_DEEPSEEK_API_KEY (dari deepseek.env)
     cloud_url: str = "https://api.deepseek.com/chat/completions"  # BRONE_DEEPSEEK_URL
     cloud_model: str = "deepseek-flash"  # BRONE_DEEPSEEK_MODEL
     cloud_timeout_s: float = 5.0  # BRONE_CLOUD_TIMEOUT_SECONDS (kode lama: 8)
-    local_url: str = "http://127.0.0.1:8081"  # BRONE_LOCAL_URL
-    local_model: str = "lfm2.5-2.6b"  # BRONE_LOCAL_MODEL
-    local_timeout_s: float = 25.0  # BRONE_LOCAL_TIMEOUT_SECONDS
     embed_url: str = "http://127.0.0.1:8082"  # BRONE_EMBED_URL
     rerank_url: str = "http://127.0.0.1:8083"  # BRONE_RERANK_URL
     rerank_min: float = 0.30  # BRONE_RERANK_MIN
@@ -155,6 +157,9 @@ class EngineSettings:
     grounding: bool = True  # BRONE_GROUNDING
     chat_llm: bool = True  # BRONE_CHAT_LLM: obrolan di luar kb/smalltalk.yaml dijawab LLM persona
     server_wait_s: float = 120.0  # BRONE_SERVER_WAIT_SECONDS
+
+    def __post_init__(self) -> None:
+        validate_engine_mode(self.mode)
 
 
 @dataclass(frozen=True)
@@ -251,9 +256,6 @@ class Settings:
             cloud_url=_str(env, "BRONE_DEEPSEEK_URL", e.cloud_url),
             cloud_model=_str(env, "BRONE_DEEPSEEK_MODEL", e.cloud_model),
             cloud_timeout_s=_float(env, "BRONE_CLOUD_TIMEOUT_SECONDS", e.cloud_timeout_s),
-            local_url=_str(env, "BRONE_LOCAL_URL", e.local_url),
-            local_model=_str(env, "BRONE_LOCAL_MODEL", e.local_model),
-            local_timeout_s=_float(env, "BRONE_LOCAL_TIMEOUT_SECONDS", e.local_timeout_s),
             embed_url=_str(env, "BRONE_EMBED_URL", e.embed_url),
             rerank_url=_str(env, "BRONE_RERANK_URL", e.rerank_url),
             rerank_min=_float(env, "BRONE_RERANK_MIN", e.rerank_min),

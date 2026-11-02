@@ -52,14 +52,11 @@ def engine_config(settings: Settings, runtime_dir: Path) -> EngineConfig:
         runtime_dir=runtime_dir,
         embed_url=e.embed_url,
         rerank_url=e.rerank_url,
-        local_url=e.local_url,
-        local_model=e.local_model,
         cloud_url=e.cloud_url,
         cloud_model=e.cloud_model,
         cloud_key=e.cloud_key,
         mode=e.mode,
         cloud_timeout_s=e.cloud_timeout_s,
-        local_timeout_s=e.local_timeout_s,
         max_tokens=e.max_tokens,
         faq_min_sim=e.faq_min_sim,
         faq_min_margin=e.faq_min_margin,
@@ -152,7 +149,7 @@ class TalkService:
     def _join_answer(self) -> None:
         if self._answer_thread is not None and self._answer_thread.is_alive():
             LOG.info("Menunggu jawaban yang diinterupsi selesai di latar")
-            self._answer_thread.join(timeout=self.settings.engine.local_timeout_s + 5)
+            self._answer_thread.join(timeout=30.0)
 
     def _clear_conversation(self) -> None:
         self._join_answer()

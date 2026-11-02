@@ -6,7 +6,7 @@ menguji di samping versi yang sedang jalan, lalu langkah cutover.
 ## Prasyarat
 
 - `~/brone-talk-v4` dan `~/brone-talk` tetap ada (rujukan dan jalan mundur).
-- Layanan llama.cpp hidup: `brone-v4-embed` (8082), `brone-v4-rerank` (8083). `brone-v4-llm` (8081) hanya diperlukan untuk mode local eksplisit.
+- Layanan llama.cpp hidup: `brone-v4-embed` (8082) dan `brone-v4-rerank` (8083).
 - Model: `~/brone-talk/models` (whisper, Piper, Silero VAD, CAM++). Model tidak ada di git.
 - Konfigurasi PipeWire `10-brone-xvf3800.conf` dan `20-brone-rnnoise-wireless.conf` sudah terpasang.
   Salinan repo ada di `deploy/pipewire/`, dengan serial yang disensor. Jangan timpa yang di NUC.
@@ -32,6 +32,19 @@ disalin ke `~/.config/pipewire/pipewire.conf.d/`:
 - `<SERIAL-XVF3800>`, `<SERIAL-RECEIVER-WIRELESS>`: serial perangkat. Ambil dari konfigurasi yang
   sudah berjalan di NUC (`target.object`), jangan dari repo.
 - `<HOME>`: home user NUC (mis. `/home/<user>`), untuk plugin RNNoise.
+
+## Migrasi dari LLM lokal
+
+Mode `BRONE_MODE=local` sudah dihapus dan menyebabkan galat konfigurasi. Ubah menjadi `auto`
+atau `cloud` untuk DeepSeek, atau `faq` untuk jawaban tanpa LLM. Variabel lama `BRONE_LOCAL_URL`,
+`BRONE_LOCAL_MODEL`, dan `BRONE_LOCAL_TIMEOUT_SECONDS` tidak lagi dibaca dan dapat dihapus dari
+EnvironmentFile dan drop-in. `make install` memperbarui `brone-talk-next`, bukan unit produksi
+`brone-talk`; perbarui unit produksi saat cutover sesuai langkah di bawah, lalu jalankan
+`systemctl --user daemon-reload`. Periksa juga drop-in dengan `systemctl --user cat` untuk unit terkait.
+Unit lama `brone-v4-llm.service` tidak dihentikan otomatis oleh perubahan repo. Setelah memastikan
+tidak ada aplikasi lain atau jalur rollback yang memakainya, unit itu dapat dihentikan dan
+dinonaktifkan dengan `systemctl --user disable --now brone-v4-llm.service`. Pertahankan layanan
+embedding dan reranking.
 
 ## Uji tanpa mengganggu robot
 
@@ -84,5 +97,5 @@ Dilakukan hanya setelah smoke test lulus semua dan Anda setuju:
 
 ## Setelah cutover
 
-- Ganti nama unit llama.cpp (`brone-v4-*` menjadi `brone-llm|embed|rerank`), hanya bila perlu.
+- Ganti nama unit llama.cpp (`brone-v4-*` menjadi `brone-embed|rerank`), hanya bila perlu.
 - Hapus `~/brone-talk-v4` dan `~/brone-talk` setelah beberapa hari stabil. Simpan `models/`.

@@ -18,7 +18,8 @@ from pathlib import Path
 from typing import Any
 
 
-from brone_talk.engine.util import norm_text, wait_for_server
+from brone_talk.config import validate_engine_mode
+from brone_talk.engine.util import norm_text
 from brone_talk.engine.servers import Embedder, Reranker
 from brone_talk.engine.entities import EntityMatcher
 from brone_talk.engine.faq import FaqIndex, load_smalltalk
@@ -75,14 +76,11 @@ class EngineConfig:
     runtime_dir: Path
     embed_url: str = "http://127.0.0.1:8082"
     rerank_url: str = "http://127.0.0.1:8083"
-    local_url: str = "http://127.0.0.1:8081"
-    local_model: str = "lfm2.5-2.6b"
     cloud_url: str = "https://api.deepseek.com/chat/completions"
     cloud_model: str = "deepseek-flash"
     cloud_key: str = ""
-    mode: str = "auto"  # auto | cloud | local | faq (diisi dari config.py)
+    mode: str = "auto"  # auto | cloud | faq (diisi dari config.py)
     cloud_timeout_s: float = 5.0  # nilai produksi (lihat docs/baseline-config.md)
-    local_timeout_s: float = 25.0
     max_tokens: int = 160
     faq_min_sim: float = 0.80
     faq_min_margin: float = 0.0
@@ -101,6 +99,9 @@ class EngineConfig:
     chat_llm: bool = True  # obrolan di luar daftar dijawab LLM persona (bukan mode faq)
     startup_wait_s: float = 120.0
 
+    def __post_init__(self) -> None:
+        validate_engine_mode(self.mode)
+
 
 class AnswerEngine:
     def __init__(self, cfg: EngineConfig) -> None:
@@ -118,11 +119,6 @@ class AnswerEngine:
         self.retriever = HybridRetriever(cfg.kb_dir / "chunks.jsonl", self.embedder)
         self.cloud = LLMBackend("cloud", cfg.cloud_url, cfg.cloud_model, cfg.cloud_key, cfg.cloud_timeout_s,
                                 cfg.max_tokens, {"thinking": {"type": "disabled"}}) if cfg.cloud_key else None
-        # LFM2.5 adalah model "berpikir": tanpa --reasoning-budget 0 di server (dan kwarg ini) seluruh
-        # max_tokens habis untuk penalaran berbahasa Inggris dan jawabannya kosong.
-        self.local = LLMBackend("local", cfg.local_url.rstrip("/") + "/v1/chat/completions", cfg.local_model, "",
-                                cfg.local_timeout_s, cfg.max_tokens,
-                                {"chat_template_kwargs": {"enable_thinking": False}})
         self.turn_log = cfg.runtime_dir / "turns.jsonl"
         self.prev_question = ""
 
@@ -135,9 +131,6 @@ class AnswerEngine:
         self.retriever.build()
         self.embedder.save()
         self.reranker.start(self.cfg.startup_wait_s)
-        if self.cfg.mode == "local" and not wait_for_server(self.cfg.local_url, self.cfg.startup_wait_s):
-            LOG.warning("LLM lokal %s belum siap sampai server hidup",
-                        self.cfg.local_url)
         LOG.info("Mesin jawaban siap dalam %.1fs: %d FAQ (%d kalimat), %d obrolan, %d chunk, cloud=%s, mode=%s",
                  time.perf_counter() - t0, len(self.faq.faqs), self.faq.sentence_count,
                  len(self.smalltalk.faqs) if self.smalltalk else 0, len(self.retriever.chunks),
@@ -172,8 +165,7 @@ class AnswerEngine:
 
     # -- inti
     def _backends(self) -> list[LLMBackend]:
-        chosen = {"auto": [self.cloud], "cloud": [self.cloud], "local": [self.local]}[self.cfg.mode]
-        return [b for b in chosen if b is not None]
+        return [self.cloud] if self.cfg.mode != "faq" and self.cloud is not None else []
 
     def _ask_llm(self, messages: list[dict], rec: dict, key: str,
                  temperature: float = 0.1) -> tuple[dict | None, list[str]]:

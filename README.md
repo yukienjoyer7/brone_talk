@@ -24,7 +24,7 @@ dan bisa diajak ngobrol santai. Telemetri tiap tahap dikirim lewat MQTT ke Jetso
 | Bagian | Isi |
 |---|---|
 | Perangkat | NUC i7-1260P/30 GB, mic reSpeaker XVF3800 (+ mic wireless), speaker USB CS202, broker MQTT di Jetson |
-| Layanan | `brone-talk` + llama.cpp `brone-v4-llm` (8081), `-embed` (8082), `-rerank` (8083); total RAM ~5,5 GB |
+| Layanan | `brone-talk` + llama.cpp `brone-v4-embed` (8082) dan `brone-v4-rerank` (8083) |
 | Basis pengetahuan | 147 FAQ (672 variasi), 232 chunk RAG, 43 obrolan tetap, data UKT/IPI 2026 |
 | Kode | ~3.900 baris Python, 90 tes unit (OK), konfigurasi env `BRONE_*` di `config.py` |
 
@@ -77,7 +77,9 @@ bash deploy/tts_voice.sh baru|lama   # suara TTS: D21 fine-tune (default) / news
 ```
 
 Rahasia (`BRONE_DEEPSEEK_API_KEY`, `BRONE_MAI_API_KEY`) hanya ada di `~/.config/brone-talk/brone.env`.
-Repo ini tidak menyimpan kunci. Kosongkan `BRONE_KWS_MODEL` untuk kembali ke mode lama (nama disebut di
+Repo ini tidak menyimpan kunci. `BRONE_MODE=auto` dan `cloud` memakai DeepSeek tanpa fallback LLM;
+`faq` menonaktifkan LLM. Mode `local` sudah dihapus. Jawaban FAQ dan obrolan tetap tidak memerlukan LLM.
+Kosongkan `BRONE_KWS_MODEL` untuk kembali ke mode lama (nama disebut di
 teks STT).
 
 ## Struktur

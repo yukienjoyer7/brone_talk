@@ -39,7 +39,7 @@ refactor; mode auto sekarang menolak saat cloud gagal, tanpa cadangan LLM lokal.
 | Variabel | Nilai produksi | Default di kode v4 | Catatan |
 |---|---|---|---|
 | BRONE_ENGINE | v4 | v4 | |
-| BRONE_MODE | auto | auto | cloud lalu lokal |
+| BRONE_MODE | auto | auto | historis: cloud lalu lokal; sekarang hanya cloud |
 | BRONE_STT_BACKEND | mai | whisper | override dari drop-in 20-mai-stt.conf |
 | BRONE_MAI_PROVIDER | voicelive | voicelive | |
 | BRONE_MAI_ENDPOINT | https://japanwest.api.cognitive.microsoft.com | sama | |
@@ -72,13 +72,12 @@ BRONE_RAG_MODE, BRONE_EMBED_MODEL, BRONE_OLLAMA_URL, BRONE_LLM_MODEL,
 BRONE_OLLAMA_NUM_THREAD, BRONE_LLM_TIMEOUT_SECONDS, BRONE_KB_HEAD_CHARS, BRONE_LLM_OFFLINE_FALLBACK,
 BRONE_CLOUD_RETRY_SECONDS.
 
-Catatan: BRONE_CLOUD_TIMEOUT_SECONDS=5 di unit berlaku untuk v4 (dibaca `EngineConfig`; default kode 8).
+Catatan: BRONE_CLOUD_TIMEOUT_SECONDS=5 di unit berlaku untuk v4 (dibaca `EngineConfig`; default kode sekarang 5).
 
-## Endpoint llama.cpp (dipakai v4)
+## Endpoint llama.cpp yang masih dipakai
 
 | Layanan | Port | Model |
 |---|---|---|
-| brone-v4-llm | 8081 | LFM2.5-2.6B-Q4_K_M.gguf (cadangan lokal) |
 | brone-v4-embed | 8082 | bge-m3-F16 |
 | brone-v4-rerank | 8083 | bge-reranker-v2-m3-Q8_0 |
 

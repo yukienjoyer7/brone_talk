@@ -41,6 +41,6 @@ Tanpa fixture, tes golden dilewati (`skipUnless`), dan itu terlihat di output se
   kosong dan belum terbukti.
 - **MQTT langsung.** Kontrak topik dicek lewat kode dan `docs/mqtt-contract.md`, bukan subscriber
   nyata ke broker Jetson.
-- **Jalur LLM (DeepSeek dan LFM2.5).** Tes golden memakai `BRONE_MODE=faq` sehingga LLM tidak
+- **Jalur LLM (DeepSeek).** Tes golden memakai `BRONE_MODE=faq` sehingga LLM tidak
   dipanggil. Jawaban LLM belum dibandingkan.
 - **MAI cloud.** Hanya jalur whisper yang bisa diuji tanpa kunci Azure.

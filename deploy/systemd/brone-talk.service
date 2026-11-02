@@ -5,8 +5,8 @@
 [Unit]
 Description=BRONE Talk (STT, jawaban FAQ/RAG/LLM, TTS) di Intel NUC
 Requires=brone-v4-embed.service brone-v4-rerank.service
-Wants=brone-v4-llm.service network-online.target
-After=brone-v4-embed.service brone-v4-rerank.service brone-v4-llm.service network-online.target sound.target pipewire.service wireplumber.service
+Wants=network-online.target
+After=brone-v4-embed.service brone-v4-rerank.service network-online.target sound.target pipewire.service wireplumber.service
 ConditionPathExists=%h/brone_talk/models/silero_vad.onnx
 ConditionPathExists=%h/brone_talk/models/voices/id_ID-brone_D21-medium.onnx
 

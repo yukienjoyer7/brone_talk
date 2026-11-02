@@ -28,7 +28,6 @@ BRONE Talk adalah pipeline suara robot asisten Universitas Brawijaya: robot mend
 | Unit | Isi | RAM |
 |---|---|---|
 | `brone-talk.service` | `brone-talk run` (Python 3.12, paket `src/brone_talk`) | ~1,0 GB |
-| `brone-v4-llm.service` | llama.cpp LFM2.5-2.6B Q4_K_M, port 8081 (mode local eksplisit) | ~3,0 GB |
 | `brone-v4-embed.service` | llama.cpp bge-m3 F16, port 8082 (embedding) | ~1,5 GB |
 | `brone-v4-rerank.service` | llama.cpp bge-reranker-v2-m3 Q8_0, port 8083 | ~0,9 GB |
 
