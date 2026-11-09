@@ -21,6 +21,7 @@ from brone_talk.audio.devices import resolve_device
 from brone_talk.config import AudioConfig, TtsConfig
 from brone_talk.telemetry import Telemetry
 from brone_talk.tts.lexnorm import load_spoken
+from brone_talk.tts.loudness import level_for_playback
 from brone_talk.tts.normalize import clean_for_speech
 
 LOG = logging.getLogger("brone-talk")
@@ -91,6 +92,7 @@ class Speaker:
             data = data.astype(np.float32) / np.iinfo(data.dtype).max
         else:
             data = data.astype(np.float32)
+        data = level_for_playback(data, sample_rate)  # -16 LUFS, puncak <= -1,5 dBFS (uji SYM-015)
         if self.cancelled.is_set():
             return
         sd.play(data, sample_rate, device=self.output_device, blocking=True)

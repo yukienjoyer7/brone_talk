@@ -1,0 +1,71 @@
+"""Penyetaraan kenyaringan ucapan sebelum diputar.
+
+Uji SYM-015 (9 Nov 2026): semua WAV Piper memuncak di skala penuh (true peak s.d. +0,14 dBTP,
+batas EBU R128 -1 dBTP) dan kenyaringan antar kalimat bervariasi (12 dari 795 file jauh lebih pelan).
+Di sini setiap ucapan disetarakan ke TARGET_LUFS (ITU-R BS.1770-4: K-weighting + gating -70 LUFS
+absolut / -10 LU relatif), lalu dibatasi agar puncak sampel <= PEAK_DBFS (selisih true peak vs puncak
+sampel pada suara D21 terukur <= 0,14 dB, jadi -1,5 dBFS memberi true peak < -1 dBTP).
+
+Tanpa dependensi baru: filter K-weighting dihitung dari parameter analog yang sama dengan pyloudnorm
+(shelf 1500 Hz +4 dB, high-pass 38 Hz) lewat rumus RBJ, sehingga berlaku untuk sample rate apa pun.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+from scipy.signal import lfilter
+
+TARGET_LUFS = -16.0
+PEAK_DBFS = -1.5
+
+
+def _biquad(kind: str, fc: float, q: float, gain_db: float, fs: int) -> tuple[np.ndarray, np.ndarray]:
+    a = 10 ** (gain_db / 40)
+    w0 = 2 * np.pi * fc / fs
+    alpha = np.sin(w0) / (2 * q)
+    c = np.cos(w0)
+    if kind == "high_shelf":
+        b = [a * ((a + 1) + (a - 1) * c + 2 * np.sqrt(a) * alpha),
+             -2 * a * ((a - 1) + (a + 1) * c),
+             a * ((a + 1) + (a - 1) * c - 2 * np.sqrt(a) * alpha)]
+        den = [(a + 1) - (a - 1) * c + 2 * np.sqrt(a) * alpha,
+               2 * ((a - 1) - (a + 1) * c),
+               (a + 1) - (a - 1) * c - 2 * np.sqrt(a) * alpha]
+    else:  # high_pass
+        b = [(1 + c) / 2, -(1 + c), (1 + c) / 2]
+        den = [1 + alpha, -2 * c, 1 - alpha]
+    b, den = np.asarray(b), np.asarray(den)
+    return b / den[0], den / den[0]
+
+
+def integrated_loudness(x: np.ndarray, fs: int) -> float:
+    """Loudness terintegrasi (LUFS) sinyal mono float. -inf bila terlalu pendek/hening."""
+    x = np.asarray(x, dtype=np.float64).reshape(-1)
+    for kind, fc, q, g in (("high_shelf", 1500.0, 1 / np.sqrt(2), 4.0), ("high_pass", 38.0, 0.5, 0.0)):
+        b, a = _biquad(kind, fc, q, g, fs)
+        x = lfilter(b, a, x)
+    block, step = int(0.4 * fs), int(0.1 * fs)
+    if len(x) < block:
+        return float("-inf")
+    starts = np.arange(0, len(x) - block + 1, step)
+    z = np.array([np.mean(x[s:s + block] ** 2) for s in starts])
+    with np.errstate(divide="ignore"):
+        lk = -0.691 + 10 * np.log10(z)
+    z = z[lk >= -70.0]
+    if len(z) == 0:
+        return float("-inf")
+    rel = -0.691 + 10 * np.log10(np.mean(z)) - 10.0
+    z = z[(-0.691 + 10 * np.log10(z)) >= rel]
+    return float(-0.691 + 10 * np.log10(np.mean(z))) if len(z) else float("-inf")
+
+
+def level_for_playback(data: np.ndarray, fs: int) -> np.ndarray:
+    """Setarakan ke TARGET_LUFS dengan puncak sampel <= PEAK_DBFS. data: float, skala [-1, 1]."""
+    mono = data.mean(axis=1) if data.ndim == 2 else data
+    peak = float(np.max(np.abs(mono))) if mono.size else 0.0
+    if peak <= 0.0:
+        return data
+    loud = integrated_loudness(mono, fs)
+    gain = 10 ** ((TARGET_LUFS - loud) / 20) if np.isfinite(loud) else 1.0
+    gain = min(gain, 10 ** (PEAK_DBFS / 20) / peak)
+    return (data * gain).astype(np.float32)

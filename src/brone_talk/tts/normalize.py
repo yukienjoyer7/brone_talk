@@ -222,6 +222,8 @@ _MONTH_ABBREVIATIONS = {
     "Okt": "Oktober", "Nov": "November", "Nop": "November", "Des": "Desember",
 }
 _MONTH_ALT = "|".join(sorted(_MONTH_ABBREVIATIONS, key=len, reverse=True))
+_MONTH_NAMES = ("Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus",
+                "September", "Oktober", "November", "Desember")
 
 _ABBREVIATION_RULES: list[tuple["re.Pattern[str]", Any]] = [
     # "Jl"/"Jln" bukan kata biasa, jadi tanpa titik pun tetap "Jalan" apa pun
@@ -308,10 +310,19 @@ _NUMBER_RULES: list[tuple["re.Pattern[str]", Any]] = [
     # NIM/NIK/NIP/NPWP/kode pos dengan penanda eksplisit.
     (re.compile(r"\b(NIM|NIK|NIP|NPWP|nomor induk(?: \w+)?|kode pos)\s*:?\s*(\d[\d.\-\s]*\d)", re.I),
      lambda m: f"{m.group(1)} {_spell_digits(m.group(2))}"),
-    # Ekstensi telepon: "ekstensi 117/118".
-    (re.compile(r"\b(ekstensi)\s+(\d+)(?:/(\d+))?", re.I),
-     lambda m: f"{m.group(1)} {_spell_digits(m.group(2))}"
-               + (f" atau {_spell_digits(m.group(3))}" if m.group(3) else "")),
+    # Tanggal "6/1/2030" (hari/bulan/tahun) -> "6 Januari 2030"; angkanya lalu diverbalkan textnorm.
+    # Tanpa ini garis miring ikut dibunyikan (uji SYM-003, 9 Nov 2026). "Nomor 27/1981" sudah diurus _nomor_repl.
+    (re.compile(r"(?<![\d/])(\d{1,2})/(\d{1,2})/(\d{4})(?![\d/])"),
+     lambda m: f"{int(m.group(1))} {_MONTH_NAMES[int(m.group(2)) - 1]} {m.group(3)}"
+               if 1 <= int(m.group(1)) <= 31 and 1 <= int(m.group(2)) <= 12 else m.group(0)),
+    # Ekstensi telepon: "ekstensi 117/118", "ekstensi 117 dan 118", "ekstensi 117, 118" -> semua dieja per digit
+    # (sebelumnya hanya "/": "117 dan 118" jadi "satu satu tujuh dan seratus delapan belas", uji SYM-002).
+    (re.compile(r"\b(ekstensi)\s+(\d{1,5}(?![\d\-])(?:\s*(?:/|,|\bdan\b|\batau\b)\s*\d{1,5}(?![\d\-]))*)", re.I),
+     lambda m: f"{m.group(1)} " + re.sub(
+         r"\s*(/|,|\bdan\b|\batau\b)\s*|(\d+)",
+         lambda p: _spell_digits(p.group(2)) if p.group(2)
+                   else (" atau " if p.group(1) == "/" else (", " if p.group(1) == "," else f" {p.group(1)} ")),
+         m.group(2))),
     # Telepon: "(0341) 551611", "0341-551611", "0812 3456 7890", "+62 812...".
     (re.compile(
         r"(?<![\w.,:/])(?:\+62[\s-]?\d{2,4}|\(0\d{2,4}\)|0\d{2,12})(?:[\s-]\d{2,8}){0,3}(?![\w]|[.,:/]\d)"),
@@ -348,6 +359,20 @@ def strip_markdown(text: str) -> str:
     text = re.sub(r"\*([^*]+)\*", r"\1", text)
     text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
     text = re.sub(r"^\s*[#>\-*+]\s+", "", text, flags=re.M)
+    # Sisa simbol yang ikut dibunyikan Piper (uji SYM-008, 9 Nov 2026: emoji menambah ~0,6 s audio per buah).
+    text = re.sub(r"<[^>]+>", " ", text)                        # tag HTML <b>..</b>
+    text = re.sub(r"(~~|__)(.+?)\1", r"\2", text)               # ~~coret~~, __tebal__
+    text = re.sub(r"(?<!\w)_(.+?)_(?!\w)", r"\1", text)         # _miring_ (kode_akses tetap)
+    text = re.sub(r"~\s*(?=Rp|\d)", "sekitar ", text)           # ~Rp20.000 -> sekitar Rp20.000
+    text = re.sub(r"\s*[←-⇿⟰-⟿]\s*", ", ", text)  # panah -> jeda
+    text = re.sub(r"^\s*\|?(?:\s*:?-{2,}:?\s*\|)+\s*:?-*:?\s*$", " ", text, flags=re.M)  # baris |---|---|
+    text = re.sub(r"\s*\|\s*", ", ", text)                      # sel tabel -> jeda
+    text = re.sub(r"[\U0001F000-\U0001FAFF☀-➿⬀-⯿️‍⃣]", " ", text)  # emoji
+    text = re.sub(r"[\[\]{}^~]", "", text)                      # sisa kurung/simbol
+    text = re.sub(r"(?<!\w)_+(?!\w)", "", text)                 # garis bawah yatim ("^_^")
+    text = re.sub(r"(?:\s*,)+\s*(?=[,.!?;:]|$)", "", text)      # koma yatim sebelum tanda baca/akhir
+    text = re.sub(r"(^|[:(])\s*,\s*", r"\1 ", text)              # koma yatim di awal / setelah titik dua
+    text = re.sub(r"(?:,\s*){2,}", ", ", text)                  # koma ganda
     return re.sub(r"\s+", " ", text).strip()
 
 
