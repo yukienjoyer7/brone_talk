@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.signal import lfilter
 
-TARGET_LUFS = -16.0
+TARGET_LUFS = -17.0  # 9 Nov 2026: -16 -> -17 agar file yang pelan tetap terjangkau tanpa melewati puncak (99,6% dalam ±1 LU)
 PEAK_DBFS = -1.5
 
 

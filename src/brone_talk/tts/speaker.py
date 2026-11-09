@@ -92,7 +92,7 @@ class Speaker:
             data = data.astype(np.float32) / np.iinfo(data.dtype).max
         else:
             data = data.astype(np.float32)
-        data = level_for_playback(data, sample_rate)  # -16 LUFS, puncak <= -1,5 dBFS (uji SYM-015)
+        data = level_for_playback(data, sample_rate)  # -17 LUFS, puncak <= -1,5 dBFS (uji SYM-015)
         if self.cancelled.is_set():
             return
         sd.play(data, sample_rate, device=self.output_device, blocking=True)
