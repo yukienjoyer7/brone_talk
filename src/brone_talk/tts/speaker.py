@@ -6,6 +6,7 @@ Dipindah dari brone_talk.py (v4). Hanya Piper: Soniox TTS sudah dihapus di versi
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 import threading
 import time
@@ -23,6 +24,11 @@ from brone_talk.telemetry import Telemetry
 from brone_talk.tts.lexnorm import load_spoken
 from brone_talk.tts.loudness import level_for_playback
 from brone_talk.tts.normalize import clean_for_speech
+
+try:  # piper-tts >= 1.3: library yang sama dengan CLI piper
+    from piper import PiperVoice, SynthesisConfig
+except ImportError:  # pragma: no cover
+    PiperVoice = SynthesisConfig = None
 
 LOG = logging.getLogger("brone-talk")
 
@@ -46,6 +52,18 @@ class Speaker:
         self.prepare = load_spoken(Path(cfg.textnorm_dir)) if cfg.textnorm_dir else clean_for_speech
         if not self.piper_bin.is_file():
             raise RuntimeError(f"Piper CLI tidak ditemukan: {self.piper_bin}")
+        # 17 Nov 2026: model dimuat SEKALI (CLI memuat ulang di setiap jawaban, biaya tetap ±0,66 s, uji SYM-001).
+        # Alur sintesis meniru piper/__main__.py (per baris, SynthesisConfig default) sehingga audionya sama.
+        # BRONE_PIPER_INPROC=0 -> kembali ke CLI lama; gagal memuat -> juga kembali ke CLI.
+        self._voice = None
+        self._voice_lock = threading.Lock()
+        if PiperVoice is not None and os.environ.get("BRONE_PIPER_INPROC", "1") != "0":
+            try:
+                self._voice = PiperVoice.load(self.voice_model, config_path=self.voice_config)
+                LOG.info("Piper dimuat sekali (in-process): %s", self.voice_model)
+            except Exception:
+                LOG.exception("Gagal memuat Piper in-process; memakai CLI")
+                self._voice = None
         self.current_text = ""  # kalimat yang sedang diucapkan (penjaga wake word dari suara sendiri)
         self.cancelled = threading.Event()  # diset oleh interupsi "halo brone": playback dihentikan
         self.sample_rate = 22_050  # id_ID-news_tts-medium.onnx.json -> audio.sample_rate
@@ -67,6 +85,9 @@ class Speaker:
         return output, elapsed_ms, wav_duration(output)
 
     def _synthesize_piper(self, text: str, output: Path) -> None:
+        if self._voice is not None:
+            self._synthesize_inproc(text, output)
+            return
         command = [
             str(self.piper_bin),
             "--model", str(self.voice_model),
@@ -83,6 +104,26 @@ class Speaker:
         if completed.returncode != 0 or not output.is_file():
             error = completed.stderr.decode("utf-8", "replace")[-300:]
             raise RuntimeError(f"Piper gagal (rc={completed.returncode}): {error}")
+
+    def _synthesize_inproc(self, text: str, output: Path) -> None:
+        """Sama dengan `piper --output-file` tanpa opsi tambahan: tiap baris non-kosong disintesis, tanpa jeda tambahan."""
+        syn_config = SynthesisConfig()
+        params_set = False
+        with self._voice_lock, wave.open(str(output), "wb") as wav_file:
+            for line in text.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                for chunk in self._voice.synthesize(line, syn_config):
+                    if not params_set:
+                        wav_file.setframerate(chunk.sample_rate)
+                        wav_file.setsampwidth(chunk.sample_width)
+                        wav_file.setnchannels(chunk.sample_channels)
+                        params_set = True
+                    wav_file.writeframes(chunk.audio_int16_bytes)
+        if not params_set:
+            output.unlink(missing_ok=True)
+            raise RuntimeError("Piper tidak menghasilkan audio")
 
     def play(self, path: Path) -> None:
         sample_rate, data = wavfile.read(path)

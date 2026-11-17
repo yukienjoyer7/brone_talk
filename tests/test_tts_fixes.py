@@ -60,6 +60,16 @@ class Loudness(unittest.TestCase):  # SYM-015
         self.assertLessEqual(20 * np.log10(np.max(np.abs(y))), PEAK_DBFS + 1e-6)
         self.assertLessEqual(integrated_loudness(y, fs), TARGET_LUFS + 0.05)
 
+    def test_quiet_speech_with_spike_reaches_target(self):  # 17 Nov: limiter, kriteria +-1 LU
+        fs = 22050
+        t = np.arange(int(fs * 3)) / fs
+        x = 0.1 * np.sin(2 * np.pi * 440 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 3 * t))
+        need = 10 ** ((TARGET_LUFS - integrated_loudness(x, fs)) / 20)
+        x[fs] = 1.4 * 10 ** (PEAK_DBFS / 20) / need  # puncak sesaat +3 dB di atas batas setelah disetarakan
+        y = level_for_playback(x.astype(np.float32), fs)
+        self.assertLessEqual(20 * np.log10(np.max(np.abs(y))), PEAK_DBFS + 1e-6)
+        self.assertLess(abs(integrated_loudness(y, fs) - TARGET_LUFS), 1.0)  # versi 9 Nov: ~3 LU di bawah target
+
     def test_silence_unchanged(self):
         z = np.zeros(1000, dtype=np.float32)
         self.assertTrue(np.array_equal(level_for_playback(z, 22050), z))

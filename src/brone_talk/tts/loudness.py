@@ -6,6 +6,11 @@ Di sini setiap ucapan disetarakan ke TARGET_LUFS (ITU-R BS.1770-4: K-weighting +
 absolut / -10 LU relatif), lalu dibatasi agar puncak sampel <= PEAK_DBFS (selisih true peak vs puncak
 sampel pada suara D21 terukur <= 0,14 dB, jadi -1,5 dBFS memberi true peak < -1 dBTP).
 
+17 Nov 2026: kriteria "kalimat pelan" = lebih dari 1 LU di bawah target (EBU R128: toleransi +-1 LU
+untuk siaran langsung). Versi 9 Nov membatasi gain agar puncak tidak lewat, sehingga 4/795 file berhenti
+> 1 LU di bawah target. Sekarang gain penuh ke target dipakai, dan hanya puncak sesaat yang melewati
+PEAK_DBFS diredam oleh limiter lookahead (maksimal MAX_LIMIT_DB, agar suara tidak rusak).
+
 Tanpa dependensi baru: filter K-weighting dihitung dari parameter analog yang sama dengan pyloudnorm
 (shelf 1500 Hz +4 dB, high-pass 38 Hz) lewat rumus RBJ, sehingga berlaku untuk sample rate apa pun.
 """
@@ -13,10 +18,13 @@ Tanpa dependensi baru: filter K-weighting dihitung dari parameter analog yang sa
 from __future__ import annotations
 
 import numpy as np
+from scipy.ndimage import minimum_filter1d, uniform_filter1d
 from scipy.signal import lfilter
 
 TARGET_LUFS = -17.0  # 9 Nov 2026: -16 -> -17 agar file yang pelan tetap terjangkau tanpa melewati puncak (99,6% dalam ±1 LU)
 PEAK_DBFS = -1.5
+MAX_LIMIT_DB = 6.0      # limiter tidak boleh meredam lebih dari ini; sisanya gain diturunkan seperti versi lama
+SMOOTH_S = 0.020        # limiter mulai meredam ~20 ms sebelum puncak dan kembali normal ~20 ms sesudahnya
 
 
 def _biquad(kind: str, fc: float, q: float, gain_db: float, fs: int) -> tuple[np.ndarray, np.ndarray]:
@@ -59,13 +67,36 @@ def integrated_loudness(x: np.ndarray, fs: int) -> float:
     return float(-0.691 + 10 * np.log10(np.mean(z))) if len(z) else float("-inf")
 
 
+def limiter_gain(mono: np.ndarray, fs: int, ceiling: float) -> np.ndarray:
+    """Kurva gain (<= 1) agar |mono * gain| <= ceiling di setiap sampel, dengan transisi halus ~SMOOTH_S sebelum dan sesudah puncak.
+
+    need[i] = gain maksimal yang diizinkan di sampel i. Minimum-filter selebar 2L+1 lalu rata-rata selebar
+    <= L+1 menjamin hasilnya tetap <= need[i] (setiap nilai yang dirata-rata adalah minimum atas jendela
+    yang memuat i), sehingga puncak tidak pernah lewat ceiling.
+    """
+    peak = np.abs(mono)
+    with np.errstate(divide="ignore"):
+        need = np.where(peak > ceiling, ceiling / peak, 1.0)
+    if need.min() >= 1.0:
+        return np.ones_like(mono)
+    L = max(1, int(SMOOTH_S * fs))
+    env = minimum_filter1d(need, size=2 * L + 1, mode="nearest")
+    return uniform_filter1d(env, size=L + 1, mode="nearest")
+
+
 def level_for_playback(data: np.ndarray, fs: int) -> np.ndarray:
-    """Setarakan ke TARGET_LUFS dengan puncak sampel <= PEAK_DBFS. data: float, skala [-1, 1]."""
+    """Setarakan ke TARGET_LUFS; puncak sampel <= PEAK_DBFS lewat limiter. data: float, skala [-1, 1]."""
     mono = data.mean(axis=1) if data.ndim == 2 else data
     peak = float(np.max(np.abs(mono))) if mono.size else 0.0
     if peak <= 0.0:
         return data
     loud = integrated_loudness(mono, fs)
     gain = 10 ** ((TARGET_LUFS - loud) / 20) if np.isfinite(loud) else 1.0
-    gain = min(gain, 10 ** (PEAK_DBFS / 20) / peak)
-    return (data * gain).astype(np.float32)
+    ceiling = 10 ** (PEAK_DBFS / 20)
+    # limiter hanya boleh meredam paling banyak MAX_LIMIT_DB; di luar itu gain keseluruhan diturunkan
+    gain = min(gain, ceiling / peak * 10 ** (MAX_LIMIT_DB / 20))
+    y = data * gain
+    ymono = y.mean(axis=1) if y.ndim == 2 else y
+    g = limiter_gain(ymono, fs, ceiling)
+    y = y * (g[:, None] if y.ndim == 2 else g)
+    return y.astype(np.float32)
