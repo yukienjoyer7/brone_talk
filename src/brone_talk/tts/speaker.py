@@ -180,18 +180,20 @@ class Speaker:
             return False
         self.telemetry.stage("tts", "start")
         path: Path | None = None
+        announced = False
         try:
             self.current_text = text
             path, synth_ms, duration_s = self.synthesize(text)
             alignments, sample_rate = self._alignments, self._alignment_rate
 
             def announce(latency_s: float = 0.0) -> None:
-                # tanpa alignment (CLI / model belum dipatch): pesan lama, mulut ikut mode GUI
-                if not alignments:
-                    self.telemetry.expression("speaking", duration_s)
-                    return
-                jadwal = viseme_schedule(alignments, sample_rate, offset_s=latency_s + self.viseme_offset_s)
+                nonlocal announced
+                # ekspresi asli + durasi (2 desimal) saat audio mulai; jadwal viseme bila ada alignment.
+                # Tanpa alignment (CLI / model belum dipatch) GUI memakai mode mulutnya sendiri (fallback).
+                jadwal = (viseme_schedule(alignments, sample_rate, offset_s=latency_s + self.viseme_offset_s)
+                          if alignments else None)
                 self.telemetry.publish("robot/expression", speech_payload(expression, duration_s, jadwal))
+                announced = True
 
             played = False
             if self.playback_enabled and not self.cancelled.is_set():
@@ -217,4 +219,7 @@ class Speaker:
             self.current_text = ""
             if path is not None:
                 path.unlink(missing_ok=True)
-            self.telemetry.expression(expression)
+            # 20 Nov 2026: ekspresi sudah dikirim saat audio mulai; mengirim lagi di sini membuat wajah
+            # berkedip idle -> ekspresi -> idle di GUI. Hanya dikirim bila belum sempat (sintesis gagal / dibatalkan).
+            if not announced:
+                self.telemetry.expression(expression)

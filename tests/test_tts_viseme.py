@@ -52,6 +52,12 @@ class VisemeScheduleTest(unittest.TestCase):
         self.assertEqual(speech_payload("bangga", 1.0, [])["expression"], "speaking")
         self.assertEqual(speech_payload("", 1.0, [])["duration"], 1.0)
 
+    def test_payload_without_alignment_has_expression_and_exact_duration(self):
+        # jalur cadangan: ekspresi asli (bukan "speaking") + durasi 2 desimal (telemetry.expression membulatkan ke atas)
+        self.assertEqual(speech_payload("happy", 3.2043, None), {"expression": "happy", "duration": 3.2})
+        j = [{"t": 0.0, "v": "A"}, {"t": 1.0, "v": "DIAM"}]
+        self.assertEqual(speech_payload("sad", 1.0, j)["viseme"], j)
+
 
 if __name__ == "__main__":
     unittest.main()

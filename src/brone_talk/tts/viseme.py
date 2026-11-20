@@ -83,8 +83,11 @@ def schedule(chunks: Iterable[Sequence[tuple[str, int]]], sample_rate: int, offs
     return jadwal
 
 
-def speech_payload(expression: str, duration_s: float, jadwal: list[dict]) -> dict:
-    """Paket gabungan robot/expression. Ekspresi yang tidak dikenal GUI membuat seluruh pesan ditolak,
-    jadi diganti "speaking" (GUI: bicara mulai + jadwal tetap jalan; ekspresi asli tetap dikirim sesudahnya)."""
+def speech_payload(expression: str, duration_s: float, jadwal: list[dict] | None) -> dict:
+    """Paket robot/expression saat audio mulai. Ekspresi yang tidak dikenal GUI membuat seluruh pesan ditolak,
+    jadi diganti "speaking" (GUI: bicara mulai, mulut tetap jalan). jadwal None/kosong -> tanpa field viseme."""
     name = expression if expression and expression.lower() in GUI_EXPRESSIONS else "speaking"
-    return {"expression": name, "duration": round(duration_s, 2), "viseme": jadwal}
+    payload = {"expression": name, "duration": round(duration_s, 2)}
+    if jadwal:
+        payload["viseme"] = jadwal
+    return payload
