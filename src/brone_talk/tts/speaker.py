@@ -24,7 +24,7 @@ from brone_talk.telemetry import Telemetry
 from brone_talk.tts.lexnorm import load_spoken
 from brone_talk.tts.loudness import level_for_playback
 from brone_talk.tts.normalize import clean_for_speech
-from brone_talk.tts.viseme import schedule as viseme_schedule, speech_payload
+from brone_talk.tts.viseme import schedule as viseme_schedule, sentence_packets, speech_payload
 
 try:  # piper-tts >= 1.3: library yang sama dengan CLI piper
     from piper import PiperVoice, SynthesisConfig
@@ -32,6 +32,7 @@ except ImportError:  # pragma: no cover
     PiperVoice = SynthesisConfig = None
 
 LOG = logging.getLogger("brone-talk")
+SENTENCE_LEAD_S = 0.2  # mode kalimat: paket kalimat berikutnya masuk antrean GUI sebelum gilirannya
 
 
 def wav_duration(path: Path) -> float:
@@ -71,6 +72,16 @@ class Speaker:
         self._alignments: list[list[tuple[str, int]]] | None = None  # alignment sintesis terakhir (None = tidak ada)
         # geser jadwal viseme (ms, positif = mulut lebih lambat); diisi dari hasil uji sinkron kamera di robot
         self.viseme_offset_s = float(os.environ.get("BRONE_VISEME_OFFSET_MS", "0")) / 1000
+        # Format pesan wajah ke robot/expression, harus sama dengan mode mulut yang dipilih di BroneGUI (F4):
+        #   timestamp (default): {"expression","duration","viseme"} sekali per jawaban -> GUI "bawaan" / "fallback"
+        #   kalimat: {"expression","duration","sentence"} per kalimat saat kalimat mulai -> GUI "streaming"
+        self.face_mode = os.environ.get("BRONE_FACE_MODE", "timestamp").strip().lower()
+        if self.face_mode not in {"timestamp", "kalimat"}:
+            LOG.warning("BRONE_FACE_MODE=%r tidak dikenal; memakai timestamp", self.face_mode)
+            self.face_mode = "timestamp"
+        self._chunk_samples: list[int] | None = None  # panjang tiap chunk (kalimat) audio terakhir
+        self._spoken_text = ""  # teks yang benar-benar disintesis (setelah normalisasi)
+        self._face_stop = threading.Event()  # menghentikan publish kalimat yang belum tiba gilirannya
         self.current_text = ""  # kalimat yang sedang diucapkan (penjaga wake word dari suara sendiri)
         self.cancelled = threading.Event()  # diset oleh interupsi "halo brone": playback dihentikan
         self.sample_rate = 22_050  # id_ID-news_tts-medium.onnx.json -> audio.sample_rate
@@ -83,6 +94,8 @@ class Speaker:
         self.runtime_dir.mkdir(parents=True, exist_ok=True)
         output = self.runtime_dir / f"reply-{uuid.uuid4().hex}.wav"
         self._alignments = None
+        self._chunk_samples = None
+        self._spoken_text = text
         started = time.perf_counter()
         try:
             self._synthesize_piper(text, output)
@@ -118,6 +131,7 @@ class Speaker:
         syn_config = SynthesisConfig()
         params_set = False
         alignments: list[list[tuple[str, int]]] | None = []
+        chunk_samples: list[int] = []
         with self._voice_lock, wave.open(str(output), "wb") as wav_file:
             for line in text.splitlines():
                 line = line.strip()
@@ -131,6 +145,7 @@ class Speaker:
                         wav_file.setnchannels(chunk.sample_channels)
                         params_set = True
                     wav_file.writeframes(chunk.audio_int16_bytes)
+                    chunk_samples.append(len(chunk.audio_int16_array))
                     al = chunk.phoneme_alignments
                     # dipakai hanya bila total sampel alignment == panjang chunk (jadwal tidak boleh meleset)
                     if alignments is not None and al and sum(a.num_samples for a in al) == len(chunk.audio_int16_array):
@@ -141,6 +156,7 @@ class Speaker:
             output.unlink(missing_ok=True)
             raise RuntimeError("Piper tidak menghasilkan audio")
         self._alignments = alignments or None
+        self._chunk_samples = chunk_samples
 
     def play(self, path: Path, on_start=None) -> None:
         """on_start(latency_s): dipanggil sesaat setelah audio mulai dikirim ke perangkat; latency_s = latensi
@@ -173,7 +189,21 @@ class Speaker:
     def stop(self) -> None:
         """Hentikan ucapan yang sedang/akan diputar (dipanggil dari thread pemantau interupsi)."""
         self.cancelled.set()
+        self._face_stop.set()
         sd.stop()
+
+    def _publish_sentences(self, packets: list[tuple[float, dict]], t0: float) -> None:
+        """Publish tiap paket kalimat saat kalimat itu mulai terdengar (t0 = saat audio mulai terdengar).
+
+        Kalimat ke-2 dst. dikirim SENTENCE_LEAD_S lebih awal: GUI mengantrekannya dan memulainya tepat saat durasi
+        kalimat sebelumnya habis. Tanpa itu paket tiba bersamaan dengan akhir kalimat sebelumnya di GUI (selisih
+        terukur ~1 ms di simulasi), sehingga mulut bisa sempat DIAM di antara kalimat.
+        """
+        for i, (start_s, payload) in enumerate(packets):
+            lead = SENTENCE_LEAD_S if i else 0.0
+            if self._face_stop.wait(max(0.0, t0 + start_s - lead - time.perf_counter())):
+                return
+            self.telemetry.publish("robot/expression", payload)
 
     def say(self, text: str, expression: str) -> bool:
         if self.cancelled.is_set():  # jawaban sudah diinterupsi: jangan sintesis lagi
@@ -181,13 +211,24 @@ class Speaker:
         self.telemetry.stage("tts", "start")
         path: Path | None = None
         announced = False
+        face_thread: threading.Thread | None = None
         try:
             self.current_text = text
             path, synth_ms, duration_s = self.synthesize(text)
             alignments, sample_rate = self._alignments, self._alignment_rate
+            chunk_samples, spoken = self._chunk_samples, self._spoken_text
 
             def announce(latency_s: float = 0.0) -> None:
-                nonlocal announced
+                nonlocal announced, face_thread
+                if self.face_mode == "kalimat":
+                    packets = sentence_packets(expression, spoken, chunk_samples, sample_rate, duration_s)
+                    self._face_stop.clear()
+                    face_thread = threading.Thread(
+                        target=self._publish_sentences, name="tts-kalimat", daemon=True,
+                        args=(packets, time.perf_counter() + latency_s + self.viseme_offset_s))
+                    face_thread.start()
+                    announced = bool(packets)
+                    return
                 # ekspresi asli + durasi (2 desimal) saat audio mulai; jadwal viseme bila ada alignment.
                 # Tanpa alignment (CLI / model belum dipatch) GUI memakai mode mulutnya sendiri (fallback).
                 jadwal = (viseme_schedule(alignments, sample_rate, offset_s=latency_s + self.viseme_offset_s)
@@ -202,6 +243,10 @@ class Speaker:
                 played = True
             else:
                 announce()
+            if face_thread is not None and self.playback_enabled:
+                # audio selesai/dihentikan: tts/done (pembatal antrean GUI) dikirim setelah paket kalimat terakhir
+                self._face_stop.set()
+                face_thread.join(timeout=1.0)
             self.telemetry.stage(
                 "tts",
                 "done",
@@ -217,6 +262,9 @@ class Speaker:
             return False
         finally:
             self.current_text = ""
+            if face_thread is not None:  # audio sudah selesai/dihentikan: kalimat yang belum terkirim dibatalkan
+                self._face_stop.set()
+                face_thread.join(timeout=1.0)
             if path is not None:
                 path.unlink(missing_ok=True)
             # 20 Nov 2026: ekspresi sudah dikirim saat audio mulai; mengirim lagi di sini membuat wajah

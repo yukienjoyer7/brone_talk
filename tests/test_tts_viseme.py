@@ -1,6 +1,6 @@
 import unittest
 
-from brone_talk.tts.viseme import schedule, speech_payload
+from brone_talk.tts.viseme import schedule, sentence_packets, speech_payload, split_sentences
 
 SR = 22050
 VALID = {"A", "I", "U", "E", "O", "REST", "DIAM"}  # VALID_VISEME BroneGUI-Tauri (protocol.rs)
@@ -57,6 +57,33 @@ class VisemeScheduleTest(unittest.TestCase):
         self.assertEqual(speech_payload("happy", 3.2043, None), {"expression": "happy", "duration": 3.2})
         j = [{"t": 0.0, "v": "A"}, {"t": 1.0, "v": "DIAM"}]
         self.assertEqual(speech_payload("sad", 1.0, j)["viseme"], j)
+
+
+class SentenceModeTest(unittest.TestCase):
+    def test_split_like_espeak(self):
+        # "." + huruf kecil tidak memecah (espeak-ng), "!" / "?" selalu memecah
+        self.assertEqual(split_sentences("Ada. u be punya ges haus. Griya ada!  ya kan? Oke"),
+                         ["Ada. u be punya ges haus.", "Griya ada!", "ya kan?", "Oke"])
+        self.assertEqual(split_sentences("Baris satu.\n\nBaris dua"), ["Baris satu.", "Baris dua"])
+
+    def test_one_packet_per_chunk_with_audio_offsets(self):
+        p = sentence_packets("happy", "Halo. Apa kabar?", [22050, 33075], SR, 2.5)
+        self.assertEqual(p, [
+            (0.0, {"expression": "happy", "duration": 1.0, "sentence": "Halo."}),
+            (1.0, {"expression": "happy", "duration": 1.5, "sentence": "Apa kabar?"})])
+
+    def test_mismatch_or_cli_falls_back_to_one_packet(self):
+        whole = [(0.0, {"expression": "happy", "duration": 2.5, "sentence": "Halo. Apa kabar?"})]
+        self.assertEqual(sentence_packets("happy", "Halo. Apa kabar?", [55125], SR, 2.5), whole)
+        self.assertEqual(sentence_packets("happy", "Halo. Apa kabar?", None, SR, 2.5), whole)
+
+    def test_contract_fields(self):
+        # GUI: expression harus dikenal (tanpa "speaking"), sentence tanpa karakter kontrol, maks 4096
+        p = sentence_packets("bangga", "Satu\tdua " + "a" * 5000, [10], SR, 1.0)[0][1]
+        self.assertEqual(p["expression"], "idle")
+        self.assertTrue(p["sentence"].startswith("Satu dua "))
+        self.assertLessEqual(len(p["sentence"]), 4096)
+        self.assertEqual(sentence_packets("neutral", "Ya.", [10], SR, 1.0)[0][1]["expression"], "neutral")
 
 
 if __name__ == "__main__":

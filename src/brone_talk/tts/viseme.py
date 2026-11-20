@@ -11,6 +11,7 @@ Aturan koartikulasi mengikuti README GUI: konsonan biasa + vokal -> langsung ben
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Sequence
 
 VOWEL = {"a": "A", "i": "I", "u": "U", "e": "E", "ɛ": "E", "ə": "E", "o": "O", "ɔ": "O"}
@@ -91,3 +92,47 @@ def speech_payload(expression: str, duration_s: float, jadwal: list[dict] | None
     if jadwal:
         payload["viseme"] = jadwal
     return payload
+
+
+# --- Mode "kalimat" (GUI visemeMode "streaming", docs/CONTRACT.md BroneGUI-Tauri, 20 Nov 2026):
+# satu paket {"expression", "duration", "sentence"} per kalimat, dipublish saat kalimat itu mulai terdengar.
+
+# Sama dengan pemecahan kalimat espeak-ng di Piper: "!" / "?" selalu memecah, "." hanya bila kata berikutnya
+# tidak diawali huruf kecil. Teruji 233/234 teks FAQ jumlahnya sama dan 233/233 batasnya identik (fonem per
+# kalimat sama); sisanya (singkatan gelar "MAcc., DBA.") jatuh ke satu paket utuh.
+_SENTENCE_END = re.compile(r"(?<=[!?])\s+|(?<=\.)\s+(?=[^\sa-z])")
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]+")
+SENTENCE_MAX_CHARS = 4096
+
+
+def split_sentences(text: str) -> list[str]:
+    """Kalimat per baris, dengan urutan yang sama seperti chunk audio Piper."""
+    out: list[str] = []
+    for line in text.splitlines():
+        out += [s.strip() for s in _SENTENCE_END.split(line.strip()) if s.strip()]
+    return out
+
+
+def _clean_sentence(text: str) -> str:
+    return " ".join(_CONTROL.sub(" ", text).split())[:SENTENCE_MAX_CHARS]
+
+
+def sentence_packets(expression: str, text: str, chunk_samples: Sequence[int] | None, sample_rate: int,
+                     duration_s: float) -> list[tuple[float, dict]]:
+    """[(detik_mulai_di_audio, payload)] untuk mode kalimat.
+
+    chunk_samples: panjang tiap chunk audio Piper (satu chunk = satu kalimat espeak). Bila jumlahnya tidak sama
+    dengan kalimat hasil split_sentences (atau tidak ada, mis. jalur CLI), dikirim satu paket berisi seluruh teks
+    dengan durasi total, sehingga durasi tetap benar walau pembagian kalimat tidak diketahui.
+    """
+    name = expression.lower() if expression and expression.lower() in GUI_EXPRESSIONS else "idle"
+    sentences = split_sentences(text)
+    if not chunk_samples or len(sentences) != len(chunk_samples) or any(n <= 0 for n in chunk_samples):
+        whole = _clean_sentence(text)
+        return [(0.0, {"expression": name, "duration": round(duration_s, 3), "sentence": whole})] if whole else []
+    packets, start = [], 0
+    for sentence, n in zip(sentences, chunk_samples):
+        packets.append((start / sample_rate,
+                        {"expression": name, "duration": round(n / sample_rate, 3), "sentence": _clean_sentence(sentence)}))
+        start += n
+    return packets
