@@ -72,13 +72,15 @@ class Speaker:
         self._alignments: list[list[tuple[str, int]]] | None = None  # alignment sintesis terakhir (None = tidak ada)
         # geser jadwal viseme (ms, positif = mulut lebih lambat); diisi dari hasil uji sinkron kamera di robot
         self.viseme_offset_s = float(os.environ.get("BRONE_VISEME_OFFSET_MS", "0")) / 1000
-        # Format pesan wajah ke robot/expression, harus sama dengan mode mulut yang dipilih di BroneGUI (F4):
-        #   timestamp (default): {"expression","duration","viseme"} sekali per jawaban -> GUI "bawaan" / "fallback"
+        # Format pesan wajah ke robot/expression (mode mulut BroneGUI dipilih di GUI dengan F4):
+        #   timestamp: {"expression","duration","viseme"} sekali per jawaban -> GUI "bawaan" / "fallback"
         #   kalimat: {"expression","duration","sentence"} per kalimat saat kalimat mulai -> GUI "streaming"
-        self.face_mode = os.environ.get("BRONE_FACE_MODE", "timestamp").strip().lower()
-        if self.face_mode not in {"timestamp", "kalimat"}:
-            LOG.warning("BRONE_FACE_MODE=%r tidak dikenal; memakai timestamp", self.face_mode)
-            self.face_mode = "timestamp"
+        #   keduanya (default): timestamp dulu, lalu paket kalimat; tiap mode GUI hanya memakai format miliknya
+        #     (bawaan/fallback mengabaikan "sentence", streaming mengabaikan "viseme"), jadi GUI bebas ganti mode.
+        self.face_mode = os.environ.get("BRONE_FACE_MODE", "keduanya").strip().lower()
+        if self.face_mode not in {"timestamp", "kalimat", "keduanya"}:
+            LOG.warning("BRONE_FACE_MODE=%r tidak dikenal; memakai keduanya", self.face_mode)
+            self.face_mode = "keduanya"
         self._chunk_samples: list[int] | None = None  # panjang tiap chunk (kalimat) audio terakhir
         self._spoken_text = ""  # teks yang benar-benar disintesis (setelah normalisasi)
         self._face_stop = threading.Event()  # menghentikan publish kalimat yang belum tiba gilirannya
@@ -220,21 +222,22 @@ class Speaker:
 
             def announce(latency_s: float = 0.0) -> None:
                 nonlocal announced, face_thread
-                if self.face_mode == "kalimat":
+                t_heard = time.perf_counter() + latency_s + self.viseme_offset_s
+                if self.face_mode in ("timestamp", "keduanya"):
+                    # ekspresi asli + durasi (2 desimal) saat audio mulai; jadwal viseme bila ada alignment.
+                    # Tanpa alignment (CLI / model belum dipatch) GUI memakai mode mulutnya sendiri (fallback).
+                    # Pada "keduanya" WAJIB sebelum paket kalimat: di GUI streaming, pesan ekspresi menghapus antrean.
+                    jadwal = (viseme_schedule(alignments, sample_rate, offset_s=latency_s + self.viseme_offset_s)
+                              if alignments else None)
+                    self.telemetry.publish("robot/expression", speech_payload(expression, duration_s, jadwal))
+                    announced = True
+                if self.face_mode in ("kalimat", "keduanya"):
                     packets = sentence_packets(expression, spoken, chunk_samples, sample_rate, duration_s)
                     self._face_stop.clear()
-                    face_thread = threading.Thread(
-                        target=self._publish_sentences, name="tts-kalimat", daemon=True,
-                        args=(packets, time.perf_counter() + latency_s + self.viseme_offset_s))
+                    face_thread = threading.Thread(target=self._publish_sentences, name="tts-kalimat",
+                                                   daemon=True, args=(packets, t_heard))
                     face_thread.start()
-                    announced = bool(packets)
-                    return
-                # ekspresi asli + durasi (2 desimal) saat audio mulai; jadwal viseme bila ada alignment.
-                # Tanpa alignment (CLI / model belum dipatch) GUI memakai mode mulutnya sendiri (fallback).
-                jadwal = (viseme_schedule(alignments, sample_rate, offset_s=latency_s + self.viseme_offset_s)
-                          if alignments else None)
-                self.telemetry.publish("robot/expression", speech_payload(expression, duration_s, jadwal))
-                announced = True
+                    announced = announced or bool(packets)
 
             played = False
             if self.playback_enabled and not self.cancelled.is_set():
