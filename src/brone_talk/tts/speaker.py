@@ -24,6 +24,7 @@ from brone_talk.telemetry import Telemetry
 from brone_talk.tts.lexnorm import load_spoken
 from brone_talk.tts.loudness import level_for_playback
 from brone_talk.tts.normalize import clean_for_speech
+from brone_talk.tts.viseme import schedule as viseme_schedule, speech_payload
 
 try:  # piper-tts >= 1.3: library yang sama dengan CLI piper
     from piper import PiperVoice, SynthesisConfig
@@ -59,11 +60,17 @@ class Speaker:
         self._voice_lock = threading.Lock()
         if PiperVoice is not None and os.environ.get("BRONE_PIPER_INPROC", "1") != "0":
             try:
+                # 20 Nov 2026: model yang sudah dipatch (python3 -m piper.patch_voice_with_alignment) memberi jumlah
+                # sampel per fonem -> jadwal viseme GUI. Model belum dipatch tetap jalan, hanya tanpa viseme.
                 self._voice = PiperVoice.load(self.voice_model, config_path=self.voice_config)
                 LOG.info("Piper dimuat sekali (in-process): %s", self.voice_model)
             except Exception:
                 LOG.exception("Gagal memuat Piper in-process; memakai CLI")
                 self._voice = None
+        self._alignment_rate = 22_050
+        self._alignments: list[list[tuple[str, int]]] | None = None  # alignment sintesis terakhir (None = tidak ada)
+        # geser jadwal viseme (ms, positif = mulut lebih lambat); diisi dari hasil uji sinkron kamera di robot
+        self.viseme_offset_s = float(os.environ.get("BRONE_VISEME_OFFSET_MS", "0")) / 1000
         self.current_text = ""  # kalimat yang sedang diucapkan (penjaga wake word dari suara sendiri)
         self.cancelled = threading.Event()  # diset oleh interupsi "halo brone": playback dihentikan
         self.sample_rate = 22_050  # id_ID-news_tts-medium.onnx.json -> audio.sample_rate
@@ -75,6 +82,7 @@ class Speaker:
             raise ValueError("Tidak ada teks untuk disintesis")
         self.runtime_dir.mkdir(parents=True, exist_ok=True)
         output = self.runtime_dir / f"reply-{uuid.uuid4().hex}.wav"
+        self._alignments = None
         started = time.perf_counter()
         try:
             self._synthesize_piper(text, output)
@@ -109,23 +117,34 @@ class Speaker:
         """Sama dengan `piper --output-file` tanpa opsi tambahan: tiap baris non-kosong disintesis, tanpa jeda tambahan."""
         syn_config = SynthesisConfig()
         params_set = False
+        alignments: list[list[tuple[str, int]]] | None = []
         with self._voice_lock, wave.open(str(output), "wb") as wav_file:
             for line in text.splitlines():
                 line = line.strip()
                 if not line:
                     continue
-                for chunk in self._voice.synthesize(line, syn_config):
+                for chunk in self._voice.synthesize(line, syn_config, include_alignments=True):
                     if not params_set:
                         wav_file.setframerate(chunk.sample_rate)
+                        self._alignment_rate = chunk.sample_rate
                         wav_file.setsampwidth(chunk.sample_width)
                         wav_file.setnchannels(chunk.sample_channels)
                         params_set = True
                     wav_file.writeframes(chunk.audio_int16_bytes)
+                    al = chunk.phoneme_alignments
+                    # dipakai hanya bila total sampel alignment == panjang chunk (jadwal tidak boleh meleset)
+                    if alignments is not None and al and sum(a.num_samples for a in al) == len(chunk.audio_int16_array):
+                        alignments.append([(a.phoneme, int(a.num_samples)) for a in al])
+                    else:
+                        alignments = None
         if not params_set:
             output.unlink(missing_ok=True)
             raise RuntimeError("Piper tidak menghasilkan audio")
+        self._alignments = alignments or None
 
-    def play(self, path: Path) -> None:
+    def play(self, path: Path, on_start=None) -> None:
+        """on_start(latency_s): dipanggil sesaat setelah audio mulai dikirim ke perangkat; latency_s = latensi
+        keluaran yang dilaporkan PortAudio dikurangi waktu yang sudah lewat sejak sd.play (>= 0)."""
         sample_rate, data = wavfile.read(path)
         if data.ndim == 1:
             data = data[:, np.newaxis]
@@ -136,7 +155,20 @@ class Speaker:
         data = level_for_playback(data, sample_rate)  # -17 LUFS, puncak <= -1,5 dBFS (uji SYM-015)
         if self.cancelled.is_set():
             return
-        sd.play(data, sample_rate, device=self.output_device, blocking=True)
+        if on_start is None:
+            sd.play(data, sample_rate, device=self.output_device, blocking=True)
+            return
+        started = time.perf_counter()
+        sd.play(data, sample_rate, device=self.output_device, blocking=False)
+        try:
+            latency = float(sd.get_stream().latency)
+        except Exception:
+            latency = 0.0
+        try:
+            on_start(max(0.0, latency - (time.perf_counter() - started)))
+        except Exception:
+            LOG.exception("Publish viseme gagal")  # suara tetap jalan walau wajah gagal
+        sd.wait()
 
     def stop(self) -> None:
         """Hentikan ucapan yang sedang/akan diputar (dipanggil dari thread pemantau interupsi)."""
@@ -151,11 +183,23 @@ class Speaker:
         try:
             self.current_text = text
             path, synth_ms, duration_s = self.synthesize(text)
-            self.telemetry.expression("speaking", duration_s)
+            alignments, sample_rate = self._alignments, self._alignment_rate
+
+            def announce(latency_s: float = 0.0) -> None:
+                # tanpa alignment (CLI / model belum dipatch): pesan lama, mulut ikut mode GUI
+                if not alignments:
+                    self.telemetry.expression("speaking", duration_s)
+                    return
+                jadwal = viseme_schedule(alignments, sample_rate, offset_s=latency_s + self.viseme_offset_s)
+                self.telemetry.publish("robot/expression", speech_payload(expression, duration_s, jadwal))
+
             played = False
             if self.playback_enabled and not self.cancelled.is_set():
-                self.play(path)
+                # publish tepat saat audio mulai keluar, bukan sebelum penyetaraan kenyaringan (30-234 ms)
+                self.play(path, on_start=announce)
                 played = True
+            else:
+                announce()
             self.telemetry.stage(
                 "tts",
                 "done",
