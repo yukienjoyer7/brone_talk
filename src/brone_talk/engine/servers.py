@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import threading
 from pathlib import Path
 
@@ -61,25 +60,3 @@ class Embedder:
             tmp = self.cache_path.with_suffix(".tmp")
             tmp.write_text(json.dumps({"model": self.model_id, "vectors": self._cache}), encoding="utf-8")
             tmp.replace(self.cache_path)
-
-class Reranker:
-    """bge-reranker-v2-m3 via llama-server /v1/rerank. Skor dikembalikan sebagai sigmoid (0..1)."""
-
-    def __init__(self, url: str, timeout_s: float = 5.0) -> None:
-        self.url = url.rstrip("/")
-        self.timeout_s = timeout_s
-
-    def start(self, wait_s: float) -> None:
-        if not wait_for_server(self.url, wait_s):
-            raise RuntimeError(f"server reranker {self.url} tidak siap dalam {wait_s:.0f} detik")
-
-    def score(self, query: str, docs: list[str]) -> list[float]:
-        if not docs:
-            return []
-        res = _http_json(self.url + "/v1/rerank", {"query": query, "documents": docs, "top_n": len(docs)},
-                         timeout=self.timeout_s)
-        out = [0.0] * len(docs)
-        for r in res.get("results", []):
-            s = float(r.get("relevance_score", r.get("score", 0.0)))
-            out[int(r["index"])] = 1.0 / (1.0 + math.exp(-s))
-        return out

@@ -138,3 +138,48 @@ class ProbeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SharedCloudStatusTest(unittest.TestCase):
+    """20 Nov 2026: LLM cloud mengikuti pemantau internet STT; offline langsung gagal cepat (tanpa cloud), pulih langsung cloud."""
+
+    def engine(self, net):
+        from brone_talk.engine.answer import AnswerEngine, EngineConfig
+
+        eng = object.__new__(AnswerEngine)
+        eng.cfg = EngineConfig(kb_dir=Path("."), runtime_dir=Path(tempfile.mkdtemp()), mode="auto")
+        eng.cloud = object()
+        eng.net, eng._cloud_failed_at = net, 0.0
+        return eng
+
+    def net(self, online=True, last_ok=0.0):
+        return mock.Mock(monitoring=True, cloud_online=online, last_probe_ok=last_ok)
+
+    def test_offline_skips_cloud(self):
+        eng = self.engine(self.net(online=False))
+        self.assertEqual(eng._backends(), [])
+
+    def test_online_uses_cloud_first(self):
+        eng = self.engine(self.net(online=True, last_ok=time.monotonic()))
+        self.assertEqual(eng._backends(), [eng.cloud])
+
+    def test_cloud_failure_skipped_until_next_successful_probe(self):
+        net = self.net(online=True, last_ok=time.monotonic())
+        eng = self.engine(net)
+        eng._cloud_failed_at = time.monotonic() + 0.001
+        self.assertEqual(eng._backends(), [])
+        net.last_probe_ok = time.monotonic() + 1  # probe berikutnya berhasil
+        self.assertEqual(eng._backends(), [eng.cloud])
+
+    def test_without_monitor_uses_cooldown(self):
+        eng = self.engine(None)
+        eng._cloud_failed_at = time.monotonic()
+        self.assertEqual(eng._backends(), [])
+        eng._cloud_failed_at = time.monotonic() - 31
+        self.assertEqual(eng._backends(), [eng.cloud])
+
+    def test_probe_ok_records_time_and_offline_probes_fast(self):
+        t = make()
+        t._set_cloud_online(True, "uji")
+        self.assertGreater(t.last_probe_ok, 0)
+        self.assertEqual(t.mai_offline_probe_s, 1.0)

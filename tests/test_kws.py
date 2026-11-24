@@ -191,16 +191,36 @@ class KwsFlowTest(unittest.TestCase):
         self.assertEqual(self.svc.speaker.said, [])
         self.assertEqual(self.svc.transcriber.queue, ["Brone, UB ada di mana?"])
 
-    def test_window_answers_many_questions_without_wake_word(self):
+    def test_session_answers_many_questions_without_wake_word(self):
         self.svc.recorder.wakes = [True]
         self.queue("siapa rektor UB sekarang", "dan dekan FILKOM siapa")
         self.svc.turn()
-        self.assertEqual(self.svc.speaker.said, [messages.SAY_CONFIRM, "JAWAB siapa rektor UB sekarang"])
-        self.assertAlmostEqual(self.svc.recorder.starts[0], 60.0, delta=0.5)
-        self.assertTrue(self.svc.session.awaiting_question)  # jendela 60 s masih terbuka
+        self.assertEqual(self.svc.speaker.said, [messages.SAY_WAKE_SESSION, "JAWAB siapa rektor UB sekarang"])
+        self.assertEqual(self.svc.recorder.starts[0], 3600.0)  # sesi tanpa batas: batas mulai bicara 1 jam
+        self.assertTrue(self.svc.session.awaiting_question)  # sesi masih terbuka
         self.svc.turn()  # tanpa wake word
         self.assertEqual(self.svc.engine.calls, ["siapa rektor UB sekarang", "dan dekan FILKOM siapa"])
-        self.assertLess(self.svc.recorder.starts[1], 60.0)  # sisa jendela, bukan 60 s baru
+        self.assertEqual(self.svc.recorder.starts[1], 3600.0)
+
+    def test_session_ends_only_on_selesai_brone(self):
+        self.svc.recorder.wakes = [True]
+        self.queue("siapa rektor UB sekarang", "selesai", "diam", "stop", "selesai brone")
+        self.svc.turn()
+        for _ in range(3):  # "selesai", "diam", "stop" tanpa nama tidak mengakhiri sesi
+            self.svc.turn()
+            self.assertTrue(self.svc.session.awaiting_question)
+        self.svc.turn()  # "selesai brone"
+        self.assertEqual(self.svc.speaker.said[-1], messages.SAY_STOP)
+        self.assertFalse(self.svc.session.awaiting_question)
+        self.assertEqual(self.svc.engine.calls, ["siapa rektor UB sekarang", "selesai", "diam", "stop"])
+
+    def test_silence_does_not_put_session_to_sleep(self):
+        self.svc.recorder.wakes = [True]
+        self.svc.turn()  # sapaan; record() -> None (tidak ada ucapan)
+        self.svc.session.awaiting_since -= 10_000  # sunyi berjam-jam
+        self.svc._expire_await()
+        self.assertTrue(self.svc.session.awaiting_question)
+        self.assertEqual(self.svc.speaker.said, [messages.SAY_WAKE_SESSION])
 
     def test_window_over_goes_back_to_sleep(self):
         self.svc.recorder.wakes = [True]
@@ -219,37 +239,25 @@ class KwsFlowTest(unittest.TestCase):
         self.queue("siapa rektor UB sekarang")
         svc.recorder.queue.append("WAKE")
         svc.turn()
-        first_until = svc._convo_until
-        time.sleep(0.01)
-        svc.turn()  # "halo brone" terdengar oleh KWS saat merekam
-        self.assertEqual(svc.speaker.said, [messages.SAY_CONFIRM, "JAWAB siapa rektor UB sekarang",
-                                            messages.SAY_CONFIRM])
-        self.assertGreater(svc._convo_until, first_until)
+        svc.turn()  # "halo brone" terdengar oleh KWS saat merekam: sapaan lagi, sesi tetap terbuka
+        self.assertEqual(svc.speaker.said, [messages.SAY_WAKE_SESSION, "JAWAB siapa rektor UB sekarang",
+                                            messages.SAY_WAKE_SESSION])
         self.assertTrue(svc.session.awaiting_question)
 
     def test_name_at_end_without_halo_is_not_a_new_wake(self):
         self.svc.recorder.wakes = [True]
         self.queue("Udah, BRONE.")
         self.svc.turn()
-        self.assertEqual(self.svc.speaker.said[0], messages.SAY_CONFIRM)
+        self.assertEqual(self.svc.speaker.said[0], messages.SAY_WAKE_SESSION)
         self.assertEqual(len(self.svc.engine.calls), 1)  # dijawab, bukan "Ya?" kedua
-        self.assertNotEqual(self.svc.speaker.said[-1], messages.SAY_CONFIRM)
+        self.assertNotEqual(self.svc.speaker.said[-1], messages.SAY_WAKE_SESSION)
 
     def test_halo_brone_text_fallback_says_ya(self):
         self.svc.recorder.wakes = [True]
         self.queue("Alo, BRONE.")
         self.svc.turn()
-        self.assertEqual(self.svc.speaker.said, [messages.SAY_CONFIRM, messages.SAY_CONFIRM])
+        self.assertEqual(self.svc.speaker.said, [messages.SAY_WAKE_SESSION, messages.SAY_WAKE_SESSION])
         self.assertEqual(self.svc.engine.calls, [])
-
-    def test_wake_then_silence_goes_back_to_sleep_quietly(self):
-        self.svc.recorder.wakes = [True]
-        self.svc.session.awaiting_since = 0
-        self.svc.turn()  # record() -> None (tidak ada ucapan)
-        self.svc.session.awaiting_since -= 100  # jendela 8 s sudah lewat
-        self.svc._expire_await()
-        self.assertEqual(self.svc.speaker.said, [messages.SAY_CONFIRM])
-        self.assertFalse(self.svc.session.awaiting_question)
 
     def test_name_prefix_in_question_is_stripped(self):
         self.svc.recorder.wakes = [True]
@@ -271,14 +279,14 @@ class KwsFlowTest(unittest.TestCase):
         self.queue("berapa biaya kuliah di UB")
         svc.turn()
         release.set()
-        self.assertEqual(svc.speaker.said, [messages.SAY_CONFIRM])  # jawaban lambat tidak diucapkan
+        self.assertEqual(svc.speaker.said, [messages.SAY_WAKE_SESSION])  # jawaban lambat tidak diucapkan
         self.assertTrue(svc._woken)
         self.assertEqual(svc.recorder.silences, 1)
         self.queue("kapan wisuda UB berikutnya")
         svc.kws_interrupt = None
         svc.engine = FakeEngine()
         svc.turn()  # langsung "Ya?" tanpa wake word
-        self.assertEqual(svc.speaker.said[1:], [messages.SAY_CONFIRM, "JAWAB kapan wisuda UB berikutnya"])
+        self.assertEqual(svc.speaker.said[1:], [messages.SAY_WAKE_SESSION, "JAWAB kapan wisuda UB berikutnya"])
 
     def test_ask_back_reply_is_accepted_without_wake_word(self):
         svc = self.svc

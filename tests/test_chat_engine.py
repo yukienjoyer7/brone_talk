@@ -52,7 +52,8 @@ class ChatOrRefuse(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp())
         eng = object.__new__(AnswerEngine)
         eng.cfg = EngineConfig(kb_dir=ROOT / "kb", runtime_dir=tmp, mode=mode)
-        eng.cloud, eng.local = FakeBackend(raw), None
+        eng.cloud = FakeBackend(raw)
+        eng.net, eng._cloud_failed_at = None, 0.0
         eng.turn_log = tmp / "turns.jsonl"
         return eng
 
@@ -112,3 +113,36 @@ class MotionCommand(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RagIgnoresBackgroundChatter(unittest.TestCase):
+    """20 Nov 2026: LLM RAG menandai obrolan latar dengan "abaikan": true -> Bron diam."""
+
+    def engine(self, raw):
+        tmp = Path(tempfile.mkdtemp())
+        eng = object.__new__(AnswerEngine)
+        eng.cfg = EngineConfig(kb_dir=ROOT / "kb", runtime_dir=tmp, mode="auto")
+        eng.cloud = FakeBackend(raw)
+        eng.net, eng._cloud_failed_at = None, 0.0
+        eng.turn_log = tmp / "turns.jsonl"
+
+        class Retriever:
+            chunks = [{"id": "c1"}]
+
+            def search_scored(self, qvec, top=5):
+                return [(0, 0.99)]
+
+        eng.retriever = Retriever()
+        eng._context = lambda ranked: "Gedung FILKOM ada di Jalan Veteran."
+        eng.prev_question = ""
+        return eng
+
+    def test_background_chatter_is_silent(self):
+        import time
+        eng = self.engine('{"abaikan": true, "answerable": false, "response": "", "expression": "neutral"}')
+        res = eng._rag_answer("eh nanti makan di gedung filkom aja", None, "", {}, time.perf_counter())
+        self.assertEqual(res["route"], "abaikan")
+        self.assertEqual(res["response"], "")
+
+    def test_goodbye_message(self):
+        self.assertEqual(messages.SAY_STOP, "Oke, sampai jumpa!")

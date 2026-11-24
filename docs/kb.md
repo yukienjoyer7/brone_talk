@@ -1,6 +1,6 @@
 # Basis pengetahuan (KB)
 
-Sumber: `kb/knowledge.yaml`. Dari sini dibangkitkan:
+Sumber: `kb/knowledge.yaml`, satu-satunya file KB yang diedit manual. Dari sini dibangkitkan:
 
 - `kb/chunks.jsonl`: potongan kecil untuk retrieval (BM25 dan embedding).
 - `kb/faq.jsonl`: pertanyaan dan variasinya untuk FAQ semantik.
@@ -16,6 +16,10 @@ python build_kb.py             # bangun ulang chunks, faq, entities
 ```
 
 Data tabel (`kb/data/*.csv`: UKT dan IPI 2026) juga dibaca `build_kb.py`.
+
+Jangan mengedit `faq.jsonl` atau `chunks.jsonl` langsung: `build_kb.py` menimpa keduanya dari
+`knowledge.yaml`. Suntingan langsung pada 27 Okt 2026 sempat hilang karena hal ini, lalu dipindahkan
+ke `knowledge.yaml` (KB v4.2, 11 Nov 2026).
 
 Setelah mengubah KB, jalankan `make test`. Tes engine golden akan memberi tahu bila rute FAQ berubah
 (tes itu butuh fixture, lihat `docs/testing.md`). Embedding dihitung ulang otomatis saat service

@@ -8,7 +8,7 @@ Dibangkitkan oleh `scripts/make_golden.py` dari kode v4 lama (`~/brone-talk-v4`)
 | tts_normalize.jsonl | clean_for_speech atas jawaban nyata | 117 |
 | nlu_wake.jsonl | collapse_repeats, wake_question, clock_answer, stop | 587 |
 | stt_filters.jsonl | _stt_fix, _mai_fix, stt_garbage_reason, stt_strip_prompt_sentence | 587 |
-| engine_routes.jsonl | rute FAQ dan skor reranker, 60 pertanyaan eval | 60 |
+| engine_routes.jsonl | rute FAQ dan kemiripan chunk teratas, 60 pertanyaan eval | 60 |
 
 ## Keterbatasan yang sudah diketahui
 
@@ -17,4 +17,4 @@ Dibangkitkan oleh `scripts/make_golden.py` dari kode v4 lama (`~/brone-talk-v4`)
 - **Satu mismatch FAQ di baseline:** "siapa dekan fakultas mipa" diharapkan `faq:dekan-fstem`, tetapi
   tidak cocok dengan FAQ mana pun. Ini sudah ada di versi lama dan tidak diperbaiki di sini.
 - Rute dicatat dengan `BRONE_MODE=faq`, jadi jalur LLM tidak tercakup.
-- `engine_routes` bergantung pada server bge-m3 (8082) dan reranker (8083) yang hidup saat merekam.
+- `engine_routes` bergantung pada server bge-m3 (8082) yang hidup saat merekam.

@@ -37,6 +37,20 @@ class EntityMatcher:
                 t = t.replace(pat, " # ", 1)
         return found
 
+    def strip(self, text: str) -> tuple[str, set[str]]:
+        """(teks ternormalisasi dengan sebutan fakultas diganti '#', kode fakultas yang disebut)."""
+        t = f" {norm_text(text)} "
+        found: set[str] = set()
+        for alias, code in self._pairs:
+            pat = f" {alias} "
+            while pat in t:
+                found.add(code)
+                t = t.replace(pat, " # ", 1)
+        return " ".join(t.split()), found
+
+    def aliases(self, code: str) -> list[str]:
+        return [a for a, c in self._pairs if c == code]
+
     @staticmethod
     def roles(text: str) -> set[str]:
         t = f" {norm_text(text)} "

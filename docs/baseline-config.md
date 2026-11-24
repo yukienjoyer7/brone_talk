@@ -5,7 +5,7 @@ pengguna. Nilai ini juga menjadi **default di `config.py`** dan `deploy/systemd/
 
 | Variabel | Nilai | Catatan |
 |---|---|---|
-| BRONE_MODE | auto | cloud DeepSeek, lalu LFM2.5 lokal |
+| BRONE_MODE | auto | FAQ + cloud DeepSeek (auto, cloud, faq; `local` ditolak sejak 24 Nov 2026) |
 | BRONE_CLOUD_TIMEOUT_SECONDS | 5 | |
 | BRONE_STT_BACKEND | mai | MAI-Transcribe-2, cadangan whisper |
 | BRONE_WHISPER_MODEL | models/faster-whisper-small | |
@@ -78,9 +78,9 @@ Catatan: BRONE_CLOUD_TIMEOUT_SECONDS=5 di unit berlaku untuk v4 (dibaca `EngineC
 
 | Layanan | Port | Model |
 |---|---|---|
-| brone-v4-llm | 8081 | LFM2.5-2.6B-Q4_K_M.gguf (cadangan lokal) |
+| ~~brone-v4-llm~~ | ~~8081~~ | dihapus 24 Nov 2026 (LFM2.5 lokal tidak dipakai lagi) |
 | brone-v4-embed | 8082 | bge-m3-F16 |
-| brone-v4-rerank | 8083 | bge-reranker-v2-m3-Q8_0 |
+| ~~brone-v4-rerank~~ | ~~8083~~ | dihapus 12 Nov 2026 (digantikan gerbang kemiripan chunk) |
 
 ## Versi terkunci
 

@@ -34,10 +34,10 @@ Urutan per pertanyaan (`engine/answer.py`, `AnswerEngine.answer`):
    tinggi dari FAQ. Permintaan pantun, lelucon, dan tebak-tebakan dipilih lewat kata kunci.
 4. **Gerakan fisik** (`is_motion_command`): perintah pendek yang diawali kata gerak ("lambaikan
    tangan", "ikut aku") -> "kontrol gerakan belum aktif". Pertanyaan tidak termasuk.
-5. **Retrieval hybrid** (`engine/retrieval.py`): BM25 dan embedding, digabung dengan RRF.
-6. **Reranker** bge-reranker-v2-m3 (`servers.py`). Skor di bawah `BRONE_RERANK_MIN` -> tidak ada
+5. **Retrieval dense** (`engine/retrieval.py`): kosinus bge-m3 pada 224 chunk terstruktur.
+6. **Gerbang kemiripan**: kosinus chunk teratas di bawah `BRONE_CHUNK_MIN_SIM` (0,60) -> tidak ada
    data UB: obrolan dijawab LLM persona (`CHAT_PROMPT`), permintaan info ditolak ("belum punya informasi").
-7. **LLM**: DeepSeek lebih dulu; gagal atau lewat batas waktu -> LFM2.5-2.6B lokal (llama.cpp).
+7. **LLM**: hanya DeepSeek cloud (LFM2.5 lokal dihapus 24 Nov 2026). Gagal atau lewat batas waktu -> jawaban ditolak sopan; FAQ dan obrolan tetap tidak butuh LLM.
    Prompt dan format JSON di `engine/llm.py`.
 8. **Cek grounding** (`engine/grounding.py`): angka dan nama di jawaban harus ada di konteks,
    bila tidak jawaban diganti penolakan.
@@ -57,7 +57,7 @@ Tidak ada cache semantik: jawaban LLM tidak disimpan untuk dipakai ulang.
 | `stt/` | transkripsi, koreksi, filter, skor confidence |
 | `nlu/wake.py` | nama Brone, panggilan, jawaban jam, kata stop |
 | `names.py` | satu sumber variasi nama "Brone" |
-| `engine/` | mesin jawaban (FAQ, retrieval, reranker, LLM, grounding) |
+| `engine/` | mesin jawaban (FAQ, retrieval, gerbang kemiripan, LLM, grounding); `engine/context.py` = konteks satu giliran |
 | `tts/` | normalisasi teks (suara D21: `lexnorm.py`), Piper, playback |
 | `telemetry.py` | publisher MQTT |
 | `messages.py` | semua kalimat tetap yang diucapkan |
@@ -71,7 +71,7 @@ TIDUR   --(KWS: "halo brone")----------> tunggu jeda -> "Ya?" -> JENDELA (60 s)
 JENDELA --(pertanyaan)-----------------> jawab -> JENDELA (sisa waktu)
 JENDELA --("halo brone" lagi)----------> "Ya?" -> JENDELA (mulai ulang)
 JENDELA --(Bron bertanya balik)--------> JENDELA (minimal BRONE_SOCIAL_AWAIT_SECONDS)
-JENDELA --(stop)-----------------------> "Baik, Bron kembali standby." -> TIDUR
+JENDELA --(stop)-----------------------> "Oke, sampai jumpa!" -> TIDUR
 JENDELA --(waktu habis)----------------> TIDUR (diam)
 BERPIKIR/BICARA --("halo brone")--------> jawaban dibatalkan -> "Ya?"   (BRONE_KWS_INTERRUPT;
                                           belum berhasil saat Bron bicara, lihat T1 di analisis-sistem.md)

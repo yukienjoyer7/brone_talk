@@ -124,6 +124,7 @@ class Transcriber:
             # ping MAI tiap keepalive_s. Gagal -> cloud_online False, ucapan berikutnya langsung ke whisper
             # tanpa menunggu timeout 3.5 s. Probe tetap jalan; berhasil -> kembali ke MAI.
             self.mai_probe_timeout_s = mai.probe_timeout_s
+            self.mai_offline_probe_s = mai.offline_probe_s
             self.cloud_online = True
             self._mai_skip_auth = False
             env_phrases = [t.strip() for t in mai.phrases.split(",") if t.strip()]
@@ -137,6 +138,8 @@ class Transcriber:
                 self.mai_skip_until = float("inf")
         elif self.backend != "whisper":
             raise RuntimeError("BRONE_STT_BACKEND harus 'mai' atau 'whisper'")
+        # waktu (monotonic) probe internet terakhir yang berhasil; dibaca mesin jawaban (LLM cloud)
+        self.last_probe_ok = 0.0
         self.last_engine = "whisper"
         self.last_raw = ""
         self.model_name = stt.whisper_model
@@ -402,7 +405,14 @@ class Transcriber:
         self._vl_ws, self._vl_opened = ws, time.monotonic()
         return ws
 
+    @property
+    def monitoring(self) -> bool:
+        """True bila pemantau internet (penjaga Voice Live) berjalan; hanya saat itu status online bermakna."""
+        return getattr(self, "_vl_keeper", None) is not None
+
     def _set_cloud_online(self, online: bool, detail: str) -> None:
+        if online:
+            self.last_probe_ok = time.monotonic()
         if online and not self._mai_skip_auth:
             self.mai_skip_until = 0.0  # istirahat setelah ucapan gagal diakhiri probe yang berhasil
         if online == self.cloud_online:
@@ -448,7 +458,8 @@ class Transcriber:
         """Latar: pemantau internet + jaga satu koneksi Voice Live siap pakai."""
         while True:
             self._probe_cloud()
-            time.sleep(self.mai_keepalive_s)
+            # online: ping tiap keepalive_s; offline: coba tiap offline_probe_s agar pemulihan cepat
+            time.sleep(self.mai_keepalive_s if self.cloud_online else self.mai_offline_probe_s)
 
     def _transcribe_voicelive(self, audio_path: Path) -> str:
         with self._vl_lock:

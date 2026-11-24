@@ -4,9 +4,9 @@
 #   journalctl --user -u brone-talk -f    # ikuti log
 [Unit]
 Description=BRONE Talk (STT, jawaban FAQ/RAG/LLM, TTS) di Intel NUC
-Requires=brone-v4-embed.service brone-v4-rerank.service
-Wants=brone-v4-llm.service network-online.target
-After=brone-v4-embed.service brone-v4-rerank.service brone-v4-llm.service network-online.target sound.target pipewire.service wireplumber.service
+Requires=brone-v4-embed.service
+Wants=network-online.target
+After=brone-v4-embed.service network-online.target sound.target pipewire.service wireplumber.service
 ConditionPathExists=%h/brone_talk/models/silero_vad.onnx
 ConditionPathExists=%h/brone_talk/models/voices/id_ID-brone_D21-medium.onnx
 
@@ -14,6 +14,8 @@ ConditionPathExists=%h/brone_talk/models/voices/id_ID-brone_D21-medium.onnx
 Type=simple
 WorkingDirectory=%h/brone_talk
 Environment=PYTHONUNBUFFERED=1
+# Batasi thread OpenBLAS: tanpa ini numpy memakai semua core dan thread berputar (spin) membuang CPU (NAF-008, uji 12 Nov 2026)
+Environment=OPENBLAS_NUM_THREADS=1
 # Nilai produksi (docs/baseline-config.md). Override di sini, rahasia di EnvironmentFile.
 Environment=BRONE_MQTT_BROKER=192.168.100.2
 Environment=BRONE_MQTT_PORT=1883
@@ -28,11 +30,12 @@ Environment=BRONE_AWAIT_SECONDS=0
 # Bron bertanya balik -> satu tanggapan tanpa nama diterima dalam jendela ini.
 Environment=BRONE_SOCIAL_AWAIT_SECONDS=8
 # 26 Okt 2026: bangun HANYA lewat model wake word "halo brone" (openWakeWord); juga interupsi.
-# Setelah "Ya?": jendela percakapan BRONE_KWS_WINDOW_SECONDS, semua pertanyaan dijawab tanpa wake word.
+# Setelah sapaan: sesi tanpa batas waktu (BRONE_KWS_WINDOW_SECONDS=0), semua pertanyaan dijawab tanpa nama;
+# sesi berakhir hanya dengan "selesai brone" (STT Mai, bukan KWS) -> tidur.
 # Kosongkan BRONE_KWS_MODEL untuk kembali ke mode lama (nama di teks STT).
 Environment=BRONE_KWS_MODEL=%h/brone_talk/models/kws/halo_brone.onnx
 Environment=BRONE_KWS_THRESHOLD=0.5
-Environment=BRONE_KWS_WINDOW_SECONDS=60
+Environment=BRONE_KWS_WINDOW_SECONDS=0
 Environment=BRONE_KWS_INTERRUPT=1
 Environment=BRONE_OUTPUT_DEVICE=default
 Environment=BRONE_PLAYBACK=1

@@ -1,1 +1,1 @@
-"""Mesin jawaban v4: FAQ semantik, retrieval hybrid, reranker, LLM, dan cek grounding."""
+"""Mesin jawaban v4: FAQ semantik, retrieval dense, LLM, dan cek grounding."""

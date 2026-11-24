@@ -72,8 +72,8 @@ class Session:
         return True
 
 
-def decide(text: str, *, called: bool, awaiting: bool) -> Outcome:
-    if awaiting and matches(STOP_PATTERNS, text):
+def decide(text: str, *, called: bool, awaiting: bool, stop_patterns: list[str] = STOP_PATTERNS) -> Outcome:
+    if awaiting and matches(stop_patterns, text):
         return Outcome(Decision.STOP)
     # Tanpa nama, robot hanya menjawab bila sedang menunggu pertanyaan setelah "Ya?".
     if not called and not awaiting:

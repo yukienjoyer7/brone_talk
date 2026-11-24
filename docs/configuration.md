@@ -35,13 +35,13 @@ tidak dibawa ke sini; lihat `docs/decisions.md`.
 | `end_silence_s` | `0.8` | `BRONE_END_SILENCE_SECONDS` |  |
 | `min_speech_s` | `0.35` | `BRONE_MIN_SPEECH_SECONDS` |  |
 | `max_utterance_s` | `8.0` | `BRONE_MAX_UTTERANCE_SECONDS` | (kode lama: 12) |
-| `min_utterance_rms` | `0.030` | `BRONE_MIN_UTTERANCE_RMS` |  |
+| `min_utterance_rms` | `0.005` | `BRONE_MIN_UTTERANCE_RMS` |  |
 | `noise_reduce` | `False` | `BRONE_NOISE_REDUCE` |  |
 | `noise_prop_decrease` | `0.9` | `BRONE_NOISE_PROP_DECREASE` |  |
 | `noise_stationary` | `False` | `BRONE_NOISE_STATIONARY` |  |
 | `kws_model` | `str(ROOT / "models" / "kws" / "halo_brone.onnx")` | `BRONE_KWS_MODEL` | : kosong = mode teks |
 | `kws_threshold` | `0.5` | `BRONE_KWS_THRESHOLD` |  |
-| `kws_window_s` | `60.0` | `BRONE_KWS_WINDOW_SECONDS` | : jendela percakapan tanpa wake word sejak "Ya?" |
+| `kws_window_s` | `0.0` | `(tetap)` |  |
 | `kws_interrupt` | `True` | `BRONE_KWS_INTERRUPT` | : "halo brone" menghentikan jawaban |
 
 ## STT (whisper lokal)
@@ -78,6 +78,7 @@ tidak dibawa ke sini; lihat `docs/decisions.md`.
 | `dns_timeout_s` | `1.5` | `BRONE_MAI_DNS_TIMEOUT_SECONDS` |  |
 | `keepalive_s` | `5.0` | `BRONE_MAI_KEEPALIVE_SECONDS` |  |
 | `probe_timeout_s` | `2.0` | `BRONE_MAI_PROBE_TIMEOUT_SECONDS` | : batas balasan ping |
+| `offline_probe_s` | `1.0` | `BRONE_MAI_OFFLINE_PROBE_SECONDS` |  |
 | `cooldown_s` | `30.0` | `BRONE_MAI_COOLDOWN_SECONDS` |  |
 | `auth_cooldown_s` | `600.0` | `BRONE_MAI_AUTH_COOLDOWN_SECONDS` |  |
 | `ws_max_age_s` | `600.0` | `BRONE_MAI_WS_MAX_AGE_SECONDS` |  |
@@ -97,26 +98,22 @@ tidak dibawa ke sini; lihat `docs/decisions.md`.
 | `voice_config` | `ROOT / "models" / "voices" / "id_ID-brone_D21-medium.onnx.json"` | `BRONE_PIPER_CONFIG` |  |
 | `textnorm_dir` | `str(ROOT / "models" / "voices" / "brone_D21_teks")` | `BRONE_TTS_TEXTNORM` | : kosong = news_tts |
 
-## Mesin jawaban (FAQ, RAG, reranker, LLM)
+## Mesin jawaban (FAQ, RAG, gerbang kemiripan, LLM)
 
 `EngineSettings`
 
 | Field | Default | Variabel env | Keterangan |
 |---|---|---|---|
-| `mode` | `"auto"` | `BRONE_MODE` | : auto | cloud | local | faq |
+| `mode` | `"auto"` | `BRONE_MODE` | : auto | cloud | faq |
 | `cloud_key` | `""` | `BRONE_DEEPSEEK_API_KEY` | (dari deepseek.env) |
 | `cloud_url` | `"https://api.deepseek.com/chat/completions"` | `BRONE_DEEPSEEK_URL` |  |
 | `cloud_model` | `"deepseek-flash"` | `BRONE_DEEPSEEK_MODEL` |  |
 | `cloud_timeout_s` | `5.0` | `BRONE_CLOUD_TIMEOUT_SECONDS` | (kode lama: 8) |
-| `local_url` | `"http://127.0.0.1:8081"` | `BRONE_LOCAL_URL` |  |
-| `local_model` | `"lfm2.5-2.6b"` | `BRONE_LOCAL_MODEL` |  |
-| `local_timeout_s` | `25.0` | `BRONE_LOCAL_TIMEOUT_SECONDS` |  |
 | `embed_url` | `"http://127.0.0.1:8082"` | `BRONE_EMBED_URL` |  |
-| `rerank_url` | `"http://127.0.0.1:8083"` | `BRONE_RERANK_URL` |  |
-| `rerank_min` | `0.30` | `BRONE_RERANK_MIN` |  |
-| `rerank_top` | `8` | `BRONE_RERANK_TOP` |  |
-| `rerank_doc_chars` | `700` | `BRONE_RERANK_DOC_CHARS` |  |
-| `rerank_timeout_s` | `10.0` | `BRONE_RERANK_TIMEOUT_SECONDS` |  |
+| `chunk_min_sim` | `0.60` | `BRONE_CHUNK_MIN_SIM` |  |
+| `followup` | `True` | `BRONE_FOLLOWUP` |  |
+| `followup_ttl_s` | `90.0` | `BRONE_FOLLOWUP_TTL_SECONDS` |  |
+| `followup_max_words` | `7` | `BRONE_FOLLOWUP_MAX_WORDS` |  |
 | `faq_min_sim` | `0.80` | `BRONE_FAQ_MIN_SIM` |  |
 | `faq_min_margin` | `0.0` | `BRONE_FAQ_MIN_MARGIN` |  |
 | `faq_stt_min_mean` | `0.50` | `BRONE_FAQ_STT_MIN_MEAN` |  |

@@ -1,4 +1,4 @@
-"""Mesin jawaban: FAQ, obrolan santai, permintaan gerakan, lalu RAG (retrieval + reranker) + LLM + grounding.
+"""Mesin jawaban: FAQ, obrolan santai, permintaan gerakan, lalu RAG (retrieval dense + gerbang kemiripan) + LLM + grounding.
 
 Urutan per ucapan ada di AnswerEngine.answer; setiap jalur mengembalikan dict lewat _result dengan
 `route` yang dicatat di runtime/turns.jsonl.
@@ -18,11 +18,12 @@ from pathlib import Path
 from typing import Any
 
 
-from brone_talk.engine.util import norm_text, wait_for_server
-from brone_talk.engine.servers import Embedder, Reranker
+from brone_talk.engine.util import norm_text
+from brone_talk.engine.context import FollowUpContext
+from brone_talk.engine.servers import Embedder
 from brone_talk.engine.entities import EntityMatcher
 from brone_talk.engine.faq import FaqIndex, load_smalltalk
-from brone_talk.engine.retrieval import HybridRetriever
+from brone_talk.engine.retrieval import DenseRetriever
 from brone_talk.engine.llm import CHAT_PROMPT, LLMBackend, SYSTEM_PROMPT, parse_llm_json
 from brone_talk.engine.grounding import grounding_problems
 from brone_talk.messages import MSG_CHAT_FALLBACK, MSG_MOTION, MSG_NOT_UNDERSTOOD, MSG_NO_INFO, MSG_SERVICE_DOWN
@@ -54,6 +55,7 @@ _SELF_RE = re.compile(r"\b(aku|saya)\b", re.I)
 
 # galat backend LLM yang membuat kita mencoba backend berikutnya
 _LLM_ERRORS = (OSError, urllib.error.URLError, ValueError, KeyError)
+_CLOUD_RETRY_S = 30.0  # tanpa pemantau internet: jeda sebelum LLM cloud dicoba lagi setelah gagal
 
 
 def is_motion_command(text: str) -> bool:
@@ -74,15 +76,11 @@ class EngineConfig:
     kb_dir: Path
     runtime_dir: Path
     embed_url: str = "http://127.0.0.1:8082"
-    rerank_url: str = "http://127.0.0.1:8083"
-    local_url: str = "http://127.0.0.1:8081"
-    local_model: str = "lfm2.5-2.6b"
     cloud_url: str = "https://api.deepseek.com/chat/completions"
     cloud_model: str = "deepseek-flash"
     cloud_key: str = ""
-    mode: str = "auto"  # auto | cloud | local | faq (diisi dari config.py)
+    mode: str = "auto"  # auto | cloud | faq (diisi dari config.py)
     cloud_timeout_s: float = 5.0  # nilai produksi (lihat docs/baseline-config.md)
-    local_timeout_s: float = 25.0
     max_tokens: int = 160
     faq_min_sim: float = 0.80
     faq_min_margin: float = 0.0
@@ -90,10 +88,10 @@ class EngineConfig:
     stt_min_seg: float = 0.40
     # STT kurang yakin -> FAQ tetap boleh, asal kemiripannya setinggi ini (lihat AnswerEngine.answer).
     faq_low_stt_min_sim: float = 0.90
-    rerank_min: float = 0.30
-    rerank_top: int = 8
-    rerank_doc_chars: int = 700
-    rerank_timeout_s: float = 10.0
+    chunk_min_sim: float = 0.60  # gerbang RAG: kosinus chunk teratas (pengganti reranker)
+    followup: bool = True  # konteks satu giliran (engine/context.py)
+    followup_ttl_s: float = 90.0
+    followup_max_words: int = 7
     context_chars: int = 1400
     context_chunks: int = 4
     grounding: bool = True
@@ -104,10 +102,11 @@ class EngineConfig:
 
 class AnswerEngine:
     def __init__(self, cfg: EngineConfig) -> None:
+        if cfg.mode not in ("auto", "cloud", "faq"):
+            raise ValueError(f"BRONE_MODE tidak valid: {cfg.mode!r}; gunakan auto, cloud, atau faq")
         self.cfg = cfg
         cfg.runtime_dir.mkdir(parents=True, exist_ok=True)
         self.embedder = Embedder(cfg.embed_url, cfg.runtime_dir / "embcache.json")
-        self.reranker = Reranker(cfg.rerank_url, timeout_s=cfg.rerank_timeout_s)
         entities = json.loads((cfg.kb_dir / "entities.json").read_text(encoding="utf-8"))
         self.entities = EntityMatcher(entities)
         self.faq = FaqIndex(cfg.kb_dir / "faq.jsonl", self.embedder, self.entities, cfg.faq_min_sim, cfg.faq_min_margin)
@@ -115,16 +114,17 @@ class AnswerEngine:
         self.smalltalk = FaqIndex(None, self.embedder, self.entities, cfg.faq_min_sim, cfg.faq_min_margin,
                                   records=chat) if chat else None
         self._chat_by_id = {c["id"]: c for c in chat}
-        self.retriever = HybridRetriever(cfg.kb_dir / "chunks.jsonl", self.embedder)
+        self.retriever = DenseRetriever(cfg.kb_dir / "chunks.jsonl", self.embedder)
         self.cloud = LLMBackend("cloud", cfg.cloud_url, cfg.cloud_model, cfg.cloud_key, cfg.cloud_timeout_s,
                                 cfg.max_tokens, {"thinking": {"type": "disabled"}}) if cfg.cloud_key else None
-        # LFM2.5 adalah model "berpikir": tanpa --reasoning-budget 0 di server (dan kwarg ini) seluruh
-        # max_tokens habis untuk penalaran berbahasa Inggris dan jawabannya kosong.
-        self.local = LLMBackend("local", cfg.local_url.rstrip("/") + "/v1/chat/completions", cfg.local_model, "",
-                                cfg.local_timeout_s, cfg.max_tokens,
-                                {"chat_template_kwargs": {"enable_thinking": False}})
         self.turn_log = cfg.runtime_dir / "turns.jsonl"
+        # 20 Nov 2026: pemantau internet bersama (Transcriber); None = tanpa pemantau (mis. STT whisper saja)
+        self.net: Any = None
+        self._cloud_failed_at = 0.0
         self.prev_question = ""
+        self.followup = (FollowUpContext(entities, self.entities, cfg.followup_ttl_s, cfg.followup_max_words,
+                                        faqs=self.faq.faqs) if cfg.followup else None)
+        self._faq_by_id = {f["id"]: f for f in self.faq.faqs}
 
     def start(self) -> None:
         t0 = time.perf_counter()
@@ -134,10 +134,6 @@ class AnswerEngine:
             self.smalltalk.build()
         self.retriever.build()
         self.embedder.save()
-        self.reranker.start(self.cfg.startup_wait_s)
-        if self.cfg.mode in ("auto", "local") and not wait_for_server(self.cfg.local_url, self.cfg.startup_wait_s):
-            LOG.warning("LLM lokal %s belum siap; cadangan lokal tidak tersedia sampai server hidup",
-                        self.cfg.local_url)
         LOG.info("Mesin jawaban siap dalam %.1fs: %d FAQ (%d kalimat), %d obrolan, %d chunk, cloud=%s, mode=%s",
                  time.perf_counter() - t0, len(self.faq.faqs), self.faq.sentence_count,
                  len(self.smalltalk.faqs) if self.smalltalk else 0, len(self.retriever.chunks),
@@ -145,6 +141,8 @@ class AnswerEngine:
 
     def reset(self) -> None:
         self.prev_question = ""
+        if self.followup:
+            self.followup.reset()
 
     # -- util
     def _stt_ok(self, stt: dict | None) -> tuple[bool, str]:
@@ -171,13 +169,27 @@ class AnswerEngine:
                 "route": route, "ask_back": ask_back, "meta": rec}
 
     # -- inti
+    def _cloud_usable(self) -> bool:
+        """Mode auto: lewati LLM cloud saat internet putus, langsung lokal tanpa menunggu timeout.
+
+        Dengan pemantau: cloud dipakai bila online DAN tidak ada kegagalan cloud sejak probe sukses terakhir
+        (probe tiap 1 s saat offline, 5 s saat online), jadi kembali ke cloud begitu internet pulih.
+        Tanpa pemantau: setelah gagal, cloud dilewati 30 s.
+        """
+        net = self.net
+        if net is not None and getattr(net, "monitoring", False):
+            return bool(net.cloud_online) and self._cloud_failed_at <= net.last_probe_ok
+        return time.monotonic() - self._cloud_failed_at > _CLOUD_RETRY_S
+
     def _backends(self) -> list[LLMBackend]:
-        chosen = {"auto": [self.cloud, self.local], "cloud": [self.cloud], "local": [self.local]}[self.cfg.mode]
-        return [b for b in chosen if b is not None]
+        chosen = [b for b in (self.cloud,) if b is not None]
+        if self.cfg.mode == "auto" and self.cloud in chosen and not self._cloud_usable():
+            chosen.remove(self.cloud)  # cloud diketahui mati: gagal cepat tanpa menunggu timeout
+        return chosen
 
     def _ask_llm(self, messages: list[dict], rec: dict, key: str,
                  temperature: float = 0.1) -> tuple[dict | None, list[str]]:
-        """Coba backend berurutan (cloud lalu lokal) sampai satu memberi JSON yang valid.
+        """Tanya backend cloud; kembalikan JSON yang valid.
 
         rec[key] = backend terakhir yang menjawab; kembalian (json atau None, daftar galat).
         """
@@ -186,6 +198,8 @@ class AnswerEngine:
             try:
                 raw, stats = be.chat(messages, temperature=temperature)
             except _LLM_ERRORS as exc:
+                if be is self.cloud:
+                    self._cloud_failed_at = time.monotonic()
                 errors.append(f"{be.name}: {str(exc)[:120]}")
                 LOG.warning("LLM %s (%s) gagal: %s", be.name, key, exc)
                 continue
@@ -231,14 +245,27 @@ class AnswerEngine:
                             _expression(parsed.get("expression"), "happy"), rec, t0, ask_back)
 
     def answer(self, text: str, stt: dict | None = None, replying_to: str = "") -> dict:
-        """Jawab satu ucapan. replying_to: kata-kata Bron yang sedang ditanggapi (jendela tanya-balik), atau "".
+        """Jawab satu ucapan; pertanyaan lanjutan yang belum lengkap dilengkapi dulu dari satu giliran sebelumnya."""
+        text = text.strip()
+        follow = self.followup.resolve(text) if self.followup and text else None
+        work = follow.text if follow is not None and follow.inherited else text
+        res = self._answer(work, stt, replying_to, original=text, follow=follow)
+        if self.followup:
+            faq_id = (res.get("meta", {}).get("faq") or {}).get("id")
+            self.followup.update(work, res["route"], self._faq_by_id.get(faq_id) if faq_id else None)
+        return res
+
+    def _answer(self, text: str, stt: dict | None, replying_to: str, original: str, follow=None) -> dict:
+        """Jawab satu ucapan (text = sudah lengkap). replying_to: kata-kata Bron yang sedang ditanggapi, atau "".
 
         Urutan: hiburan (kata kunci) -> FAQ / obrolan berjawaban tetap -> permintaan gerakan
         -> RAG + LLM (cloud lalu lokal) -> grounding. Tanpa data UB, obrolan dijawab LLM persona.
         """
         t0 = time.perf_counter()
         text = text.strip()
-        rec: dict[str, Any] = {"ts": _dt.datetime.now().isoformat(timespec="seconds"), "text": text, "stt": stt}
+        rec: dict[str, Any] = {"ts": _dt.datetime.now().isoformat(timespec="seconds"), "text": original, "stt": stt}
+        if follow is not None and follow.inherited:
+            rec["followup"] = follow.as_log()
         if replying_to:
             rec["replying_to"] = replying_to
         if len(norm_text(text)) < 2:
@@ -289,25 +316,17 @@ class AnswerEngine:
         return None
 
     def _rag_answer(self, text: str, qvec: Any, replying_to: str, rec: dict, t0: float) -> dict:
-        """Retrieval + gerbang reranker -> LLM dengan konteks -> grounding."""
+        """Retrieval dense + gerbang kemiripan -> LLM dengan konteks -> grounding."""
         query = text
-        if self.prev_question and len(norm_text(text).split()) <= 5:
+        if self.prev_question and len(norm_text(text).split()) <= 5 and "followup" not in rec:
             # pertanyaan susulan pendek ("kalau FILKOM?") dicari bersama pertanyaan sebelumnya
             query = f"{self.prev_question} {text}"
             qvec = self.embedder.embed([query])[0]
         t1 = time.perf_counter()
-        cand = self.retriever.search(query, qvec, top=self.cfg.rerank_top)
-        try:
-            scores = self.reranker.score(
-                query, [self.retriever.chunks[i]["_doc"][: self.cfg.rerank_doc_chars] for i in cand])
-        except Exception as exc:  # reranker mati: jangan tebak, tolak saja
-            LOG.warning("Reranker gagal: %s", exc)
-            rec["error"] = f"reranker: {exc}"
-            return self._result("tolak_reranker_error", MSG_NO_INFO, "neutral", rec, t0)
-        ranked = sorted(zip(cand, scores, strict=False), key=lambda p: -p[1])
+        ranked = self.retriever.search_scored(qvec, top=max(5, self.cfg.context_chunks))
         rec["retrieval_ms"] = round((time.perf_counter() - t1) * 1000)
         rec["top"] = [(self.retriever.chunks[i]["id"], round(s, 3)) for i, s in ranked[:5]]
-        if not ranked or ranked[0][1] < self.cfg.rerank_min:
+        if not ranked or ranked[0][1] < self.cfg.chunk_min_sim:
             return self._chat_or_refuse(text, replying_to, "tolak_tidak_ada_info", rec, t0)
 
         context = self._context(ranked)
@@ -321,6 +340,8 @@ class AnswerEngine:
                 return self._result("gagal_llm", MSG_SERVICE_DOWN, "confused", rec, t0)
             return self._result("tidak_dimengerti", MSG_NOT_UNDERSTOOD, "confused", rec, t0)
 
+        if parsed.get("abaikan") is True:  # 20 Nov 2026: obrolan latar / bukan untuk Bron -> diam
+            return self._result("abaikan", "", "neutral", rec, t0)
         response = str(parsed.get("response", "")).strip()
         if parsed.get("answerable") is False or not response:
             return self._chat_or_refuse(text, replying_to, "tolak_llm", rec, t0)
@@ -338,7 +359,7 @@ class AnswerEngine:
         """Gabungan chunk teratas, dibatasi context_chunks dan context_chars (chunk pertama selalu masuk)."""
         parts, used = [], 0
         for i, score in ranked[: self.cfg.context_chunks]:
-            if score < self.cfg.rerank_min * 0.5 and parts:
+            if score < self.cfg.chunk_min_sim * 0.85 and parts:
                 break
             chunk = self.retriever.chunks[i]
             doc = f"[{chunk['judul']}] {chunk['teks']}"
