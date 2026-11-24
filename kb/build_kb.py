@@ -405,4 +405,9 @@ def main(check_only: bool = False) -> int:
 
 
 if __name__ == "__main__":
+    # argumen tak dikenal (mis. --help) tidak boleh diam-diam membangun ulang dan menimpa KB
+    extra = [a for a in sys.argv[1:] if a != "--check"]
+    if extra:
+        print(__doc__)
+        sys.exit(0 if extra[0] in ("-h", "--help") else 2)
     sys.exit(main(check_only="--check" in sys.argv))

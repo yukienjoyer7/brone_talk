@@ -14,8 +14,8 @@
 
 meta:
   nama: Knowledge Base BRONE
-  versi: "4.1"
-  diperbarui: "2026-10-26"
+  versi: "4.2"
+  diperbarui: "2026-11-11"
   catatan_keputusan:
     - Robot memperkenalkan diri sebagai Bron. Nama anggota tim robot tidak dicantumkan.
     - Lantai laboratorium FILKOM tidak dicantumkan karena sumbernya tidak konsisten.
@@ -232,14 +232,6 @@ bagian:
           Upacara Dies Natalis UB ke-64 dengan pidato ilmiah dijadwalkan pada 5 Januari 2027.
         sumber: [kalender_akademik]
         berlaku_hingga: "2027-01-05"
-      - sub: Wisuda 2026/2027
-        teks: >-
-          Wisuda UB tahun akademik 2026/2027 digelar di Gedung Samantha Krida. Periode I sampai VI sudah berlangsung
-          pada September dan Oktober 2026. Periode VII digelar Sabtu 14 November 2026 dan periode VIII Minggu
-          15 November 2026, pukul 07.30 sampai 11.30. Pendaftaran wisuda dilakukan melalui bagian akademik
-          fakultas masing-masing.
-        sumber: [ub_wisuda56, ub_wisuda78]
-        berlaku_hingga: "2026-11-15"
 
       - sub: Ketentuan wisuda
         teks: >-
@@ -404,12 +396,6 @@ bagian:
           Gedung-gedung FILKOM dilengkapi ramp, lift yang ramah tunanetra, toilet khusus disabilitas di setiap gedung,
           dan parkir khusus penyandang disabilitas di basemen Gedung F dan G.
         sumber: [filkom_fasilitas]
-      - sub: Acara FILKOM terdekat
-        teks: >-
-          Sosialisasi Akademik Orang Tua Mahasiswa Baru FILKOM angkatan 2026 diadakan pada 31 Oktober 2026 pukul 08.00
-          di Auditorium Algoritma Gedung G lantai 2.
-        sumber: [filkom_home]
-        berlaku_hingga: "2026-10-31"
 
 # ===========================================================================
 # FAKULTAS (dirender sebagai [ Fxx ] di dalam BAGIAN 9 pada knowledge.txt)
@@ -791,7 +777,9 @@ faq:
   # ---------------------------------------------------------------- sapaan dan robot
   - id: sapaan
     q: Halo Bron, apa kabar?
-    variasi: [halo, hai Bron, apa kabar, selamat pagi, selamat siang, selamat sore, hai apa kabar kamu]
+    # Sapaan umum (halo, hai Bron, apa kabar, selamat pagi/siang/sore) ditangani kb/smalltalk.yaml (jawaban bervariasi);
+    # kalimat itu dihapus dari sini agar tidak ada kalimat ganda antar-sumber (uji 12 Nov 2026).
+    variasi: [hai apa kabar kamu]
     a: Halo! Kabar Bron baik. Ada yang ingin kamu ketahui tentang Universitas Brawijaya?
     sumber: [tim_brone]
   - id: terima-kasih
@@ -802,66 +790,60 @@ faq:
   - id: siapa-kamu
     q: Siapa kamu?
     variasi: [kamu siapa, siapa namamu, perkenalkan dirimu, namamu siapa, kamu itu siapa, siapa nama robot ini, kamu robot apa namanya]
-    a: Saya Bron, robot humanoid maskot Universitas Brawijaya. Saya bisa menjawab pertanyaan seputar UB.
+    a: >-
+      Saya Bron, maskot Universitas Brawijaya. Saya diciptakan untuk melayani Anda di bidang pendidikan dan riset.
+      Saya masih terus belajar dan mengenali lingkungan. Tentu saja, saya bisa menjawab pertanyaan seputar UB.
     sumber: [ub_brand, tim_brone]
   - id: kemampuan
     q: Kamu bisa apa saja?
     variasi: [apa saja kemampuanmu, kamu bisa ngapain, apa yang bisa kamu lakukan, kamu bisa berjalan tidak, kamu bisa bergerak tidak, kamu bisa melambai tidak]
     a: >-
-      Saya bisa mendengar pertanyaan dan menjawab informasi seputar Universitas Brawijaya, menampilkan ekspresi wajah,
-      dan menatap lawan bicara. Saya belum bisa bergerak seperti melambai atau berjalan.
+      Saya bisa mendengar dan menjawab informasi seputar Universitas Brawijaya. Saya juga bisa berekspresi dan
+      menatap Anda. Saya masih terus belajar dalam berbagai hal seperti melatih keseimbangan untuk berjalan sehingga
+      dapat lebih bermanfaat.
     sumber: [tim_brone]
   - id: bentuk-robot
     q: Robot BRONE berbentuk apa?
     variasi: [kamu berbentuk apa, robot BRONE itu seperti apa, apakah kamu robot humanoid, Bron itu robot jenis apa]
-    a: Bron berbentuk robot humanoid, yaitu robot yang menyerupai manusia, sebagai wujud maskot BRONE Universitas Brawijaya.
-    sumber: [ub_brand, filkom_nirc2025]
+    a: >-
+      Bron berbentuk robot humanoid, yaitu robot yang menyerupai manusia, sebagai identitas Universitas Brawijaya.
+    sumber: [ub_brand]
   - id: kepanjangan-brone
-    q: Apa kepanjangan BRONE?
-    variasi: [BRONE singkatan dari apa, arti nama BRONE, BRONE itu artinya apa, kepanjangan Bron]
-    a: BRONE adalah singkatan dari Brawijaya Number One, maskot resmi Universitas Brawijaya.
+    q: Apa arti singkatannya?
+    variasi: [BRONE singkatan dari apa, arti nama BRONE, BRONE itu artinya apa, kepanjangan Bron, "BRONE singkatan dari apa?", "BRONE itu kepanjangannya apa?"]
+    a: "Kepanjangan Bron adalah Brawijaya Number One, maskot resmi Universitas Brawijaya."
     sumber: [ub_brand]
   - id: makna-maskot
-    q: Apa makna maskot BRONE?
+    q: Apa makna simbolik dan peran maskot?
     variasi: [filosofi maskot BRONE, kenapa maskot UB berbentuk robot, makna maskot Universitas Brawijaya, maskot UB itu apa]
     a: >-
-      BRONE adalah maskot resmi UB berupa robot pendamping yang menjadi pemandu informasi, mampu belajar,
-      dan terus berkembang. Bentuk robot melambangkan inovasi serta kekuatan daya saing.
-    sumber: [ub_brand]
-  - id: warna-maskot
-    q: Apa arti warna maskot BRONE?
-    variasi: [arti warna BRONE, kenapa BRONE warnanya biru dan kuning, makna warna maskot UB, filosofi warna BRONE]
-    a: Warna biru, kuning, silver, dan hitam pada BRONE melambangkan kepercayaan, kebahagiaan, modernisasi, dan elegan.
+      Bron adalah maskot resmi UB berupa robot pendamping yang menjadi pemandu informasi, mampu belajar, dan terus
+      berkembang. Bentuk robot melambangkan inovasi serta kekuatan daya saing. Bron merupakan representasi program
+      globalisasi UB guna mengenalkan Universitas Brawijaya ke dunia internasional.
     sumber: [ub_brand]
   - id: pembuat-robot
     q: Siapa yang membuat kamu?
     variasi: [siapa pembuatmu, kamu dibuat oleh siapa, siapa yang mengembangkan robot BRONE, kamu buatan siapa, tim pembuat robot BRONE dari mana, siapa yang bikin robot ini]
     a: >-
-      Bron dikembangkan melalui program UB Globalizing Project Robot BRONE oleh dosen, mahasiswa, dan alumni
-      dari Fakultas Ilmu Komputer, Teknik Elektro, dan Teknik Mesin UB.
+      Bron dikembangkan melalui program UB Globalizing Project Robot BRONE oleh dosen, mahasiswa, dan alumni dari
+      berbagai bidang studi.
     sumber: [filkom_pitoyo2026, filkom_workshop2024]
     entitas: bebas
-  - id: prestasi-robot
-    q: Apa prestasi tim robot BRONE?
-    variasi: [prestasi robot BRONE apa saja, tim BRONE pernah juara apa, BRONE pernah ikut lomba apa, pencapaian tim robot BRONE]
+  - id: kerja-sama-luar-negeri
+    q: Apa kerja sama tim BRONE dengan dunia internasional?
+    variasi: ["BRONE pernah bekerja sama dengan universitas di Jepang?", "Apa saja kerja sama internasional yang dilakukan tim BRONE?", "Dengan universitas luar negeri mana tim BRONE bekerja sama?"]
     a: >-
-      Tim BRONE meraih Juara 3 Best Performance Team pada National Industrial Robotic Competition 2025
-      di Universitas Negeri Padang, bersaing dengan 34 tim dari 20 perguruan tinggi.
-    sumber: [filkom_nirc2025]
-  - id: kerja-sama-jepang
-    q: Apa kerja sama tim BRONE dengan Jepang?
-    variasi: [workshop robot BRONE dengan Chukyo University, BRONE pernah kerja sama dengan universitas Jepang, siapa Profesor Pitoyo Hartono]
-    a: >-
-      Pada 30 Agustus 2024 UB dan Chukyo University dari Jepang mengadakan workshop pengembangan teknologi robot
-      untuk tim robot BRONE, dengan narasumber Profesor Pitoyo Hartono.
+      Kami bekerja sama dengan universitas ternama di Jepang seperti Waseda Yuniversiti dan Cukyo Yuniversiti. Kami
+      juga melakukan kerja sama dengan Inggris, seperti Leicester Yuniversiti dan Warwick Yuniversiti.
     sumber: [filkom_workshop2024]
   - id: lms-brone
     q: Apa itu LMS BRONE?
     variasi: [BRONE ub ac id itu apa, LMS BRONE untuk apa, platform BRONE itu apa, e-learning BRONE itu apa]
     a: >-
-      LMS BRONE adalah Learning Management System atau platform pembelajaran daring di brone.ub.ac.id
-      yang dipakai FILKOM dan Fakultas Kedokteran untuk perkuliahan.
-    sumber: [filkom_fasilitas]
+      LMS BRONE adalah Learning Management System atau platform pembelajaran daring yang digunakan seluruh fakultas
+      di Universitas Brawijaya, serta menjadi bagian dari transformasi digital UB dalam meningkatkan efektivitas,
+      dokumentasi, dan kualitas pembelajaran berbasis teknologi.
+    sumber: [fib_brone]
 
   # ---------------------------------------------------------------- profil UB
   - id: lokasi-ub
@@ -869,7 +851,7 @@ faq:
     variasi: [UB itu di mana, lokasi Universitas Brawijaya di mana, alamat kampus UB, kampus Brawijaya ada di kota apa, kampus utama UB di mana, UB ada di jalan apa]
     a: >-
       Kampus utama Universitas Brawijaya ada di Jalan Veteran, Kota Malang, Jawa Timur. UB juga punya Kampus Dieng
-      di Kabupaten Malang, PSDKU di Kediri, dan kampus baru yang sedang dibangun di Kepanjen.
+      di Kabupaten Malang, PSDKU Kediri, PSDKU Jakarta, dan kampus baru di Kepanjen.
     sumber: [ub_stat, aset_kepanjen]
   - id: moto
     q: Apa moto UB?
@@ -886,17 +868,17 @@ faq:
   - id: jumlah-fakultas
     q: Berapa jumlah fakultas di UB?
     variasi: [UB punya berapa fakultas, ada berapa fakultas di Brawijaya, jumlah fakultas Universitas Brawijaya, fakultas di UB ada berapa]
-    a: UB memiliki 17 fakultas ditambah Sekolah Pascasarjana, dengan 197 program studi.
-    sumber: [detik_rename, ub_stat]
+    a: UB memiliki 18 fakultas ditambah Sekolah Pascasarjana dan 2 PSDKU serta 213 program studi.
+    sumber: [ub_stat]
   - id: daftar-fakultas
     q: Apa saja fakultas di UB?
     variasi: [sebutkan fakultas di UB, fakultas apa saja yang ada di Brawijaya, daftar fakultas Universitas Brawijaya, UB punya fakultas apa saja]
     a: >-
       Fakultas di UB adalah Hukum, Ekonomi dan Bisnis, Ilmu Administrasi, Bio-Industri Pertanian dan Kehutanan,
-      Sains dan Teknologi Peternakan, Perikanan dan Ilmu Kelautan, Kedokteran, Teknik, Sains Teknologi dan Matematika,
-      Teknologi Agroindustri dan Biosistem, Ilmu Sosial dan Ilmu Politik, Ilmu Budaya, Kedokteran Gigi, Kedokteran Hewan,
-      Ilmu Komputer, Vokasi, dan Ilmu Kesehatan, ditambah Sekolah Pascasarjana.
-    sumber: [detik_rename]
+      Sains dan Teknologi Peternakan, Perikanan dan Ilmu Kelautan, Kedokteran, Teknik, Sains Teknologi dan
+      Matematika, Teknologi Agroindustri dan Biosistem, Ilmu Sosial dan Ilmu Politik, Ilmu Budaya, Kedokteran Gigi,
+      Kedokteran Hewan, Ilmu Komputer, Vokasi, dan Ilmu Kesehatan, ditambah Sekolah Pascasarjana.
+    sumber: [ub_stat]
   - id: ganti-nama-fakultas
     q: Fakultas apa saja yang ganti nama di UB?
     variasi: [fakultas yang berubah nama di UB, apakah ada fakultas UB yang berubah nama, FMIPA sekarang namanya apa, Fakultas Pertanian sekarang namanya apa, Fakultas Peternakan ganti nama jadi apa, Fakultas Teknologi Pertanian sekarang apa namanya]
@@ -911,18 +893,18 @@ faq:
     q: Berapa jumlah mahasiswa UB?
     variasi: [mahasiswa UB ada berapa, berapa banyak mahasiswa di Brawijaya, jumlah mahasiswa baru UB, UB punya berapa mahasiswa]
     a: >-
-      UB memiliki lebih dari 60.000 mahasiswa. Menurut data resmi per Juni 2025, dalam setahun ada 17.485 mahasiswa baru
-      dan 11.431 lulusan.
-    sumber: [ub_stat, ub_profil]
+      UB memiliki lebih dari 60.000 mahasiswa. Menurut data resmi per Oktober 2026, ada penambahan 18.537 mahasiswa
+      baru dan 11.431 lulusan.
+    sumber: [ub_stat]
   - id: jumlah-prodi
     q: Berapa jumlah program studi di UB?
     variasi: [UB punya berapa prodi, ada berapa jurusan di UB, jumlah jurusan di Brawijaya, berapa program studi Universitas Brawijaya]
-    a: Menurut data resmi per Juni 2025, UB memiliki 197 program studi.
+    a: "Menurut data resmi per Juni 2025, UB memiliki 213 program studi."
     sumber: [ub_stat]
   - id: jumlah-guru-besar
     q: Berapa jumlah profesor di UB?
     variasi: [guru besar UB ada berapa, berapa profesor di Brawijaya, jumlah dosen doktor di UB, UB punya berapa guru besar]
-    a: Menurut data resmi per Juni 2025, UB memiliki 271 guru besar dan 1.076 dosen bergelar doktor.
+    a: "Menurut data resmi per Oktober 2026, UB memiliki 332 guru besar dan 1.276 dosen bergelar doktor."
     sumber: [ub_stat]
   - id: status-ptnbh
     q: Apa status kelembagaan UB sekarang?
@@ -949,20 +931,20 @@ faq:
       Pada QS World University Rankings 2027, UB berada di peringkat 616 dunia, naik 64 peringkat dari tahun sebelumnya.
       Di QS Asia 2026, UB berada di peringkat 145 Asia.
     sumber: [prasetya_qs2027, topuni]
-  - id: visi
+  - id: visi-ub
     q: Apa visi UB?
-    variasi: [visi Universitas Brawijaya, visi kampus Brawijaya, apa visi kampus UB]
+    variasi: [visi Universitas Brawijaya, visi kampus Brawijaya, apa visi kampus UB, "UB memiliki visi apa?", "Apa visi Universitas Brawijaya?"]
     a: >-
-      Visi UB adalah menjadi perguruan tinggi pelopor dan pembaharu dengan reputasi internasional dalam ilmu pengetahuan
-      dan teknologi, terutama yang menunjang industri berbasis budaya untuk kesejahteraan masyarakat.
+      Visi UB adalah menjadi perguruan tinggi pelopor dan pembaharu dengan reputasi internasional dalam ilmu
+      pengetahuan dan teknologi, terutama yang menunjang industri berbasis budaya untuk kesejahteraan masyarakat.
     sumber: [ub_visi]
-  - id: misi
+  - id: misi-ub
     q: Apa misi UB?
-    variasi: [misi Universitas Brawijaya, sebutkan misi UB, misi kampus Brawijaya]
+    variasi: [misi Universitas Brawijaya, sebutkan misi UB, misi kampus Brawijaya, "Apa saja misi Universitas Brawijaya?", Sebutkan empat misi UB.]
     a: >-
-      Misi UB ada empat: menyelenggarakan pendidikan berstandar internasional; menyelenggarakan penelitian yang bermanfaat
-      bagi masyarakat; menyelenggarakan pengabdian kepada masyarakat berdasarkan kearifan lokal; serta mengelola perguruan
-      tinggi yang unggul, berkeadilan, dan berkelanjutan.
+      Misi UB ada empat, yang intinya: menyelenggarakan pendidikan berstandar internasional; menyelenggarakan
+      penelitian yang bermanfaat bagi masyarakat; menyelenggarakan pengabdian kepada masyarakat berdasarkan kearifan
+      lokal; serta mengelola perguruan tinggi yang unggul, berkeadilan, dan berkelanjutan.
     sumber: [ub_visi]
 
   # ---------------------------------------------------------------- sejarah
@@ -1006,7 +988,7 @@ faq:
   - id: rektor
     q: Siapa rektor UB sekarang?
     variasi: [rektor UB siapa, siapa rektor Universitas Brawijaya, nama rektor Brawijaya, siapa pemimpin UB, rektor Brawijaya sekarang siapa]
-    a: Rektor Universitas Brawijaya periode 2022 sampai 2027 adalah Profesor Widodo. Sebelumnya beliau adalah Dekan Fakultas MIPA UB.
+    a: Rektor Universitas Brawijaya periode 2022 sampai 2027 adalah Profesor Widodo.
     sumber: [ub_pejabat, mwa_rektor]
   - id: wakil-rektor
     q: Siapa saja wakil rektor UB?
@@ -1040,8 +1022,8 @@ faq:
     q: Apa itu kampus UB Kepanjen?
     variasi: [kampus baru UB di mana, UB buka kampus di Kepanjen, lokasi kampus Kepanjen UB, pembangunan kampus UB Kepanjen]
     a: >-
-      Kampus baru UB sedang dibangun di Desa Panggungrejo, Kepanjen, Kabupaten Malang, di atas lahan sekitar 30 hektare.
-      Gedung Fakultas Vokasi juga sedang dibangun di sana.
+      Kampus baru UB di Desa Panggungrejo, Kepanjen, Kabupaten Malang, di atas lahan sekitar 30 hektare. Ada Gedung
+      Fakultas Vokasi juga di sana.
     sumber: [aset_kepanjen]
     entitas: bebas
   - id: psdku-kediri
@@ -1050,8 +1032,15 @@ faq:
     a: >-
       Ya, UB memiliki PSDKU di Kediri. Program studi di sana antara lain Agroekoteknologi, Agribisnis, Peternakan,
       Akuakultur, dan Sosial Ekonomi Perikanan.
-    sumber: [ub_stat, selma_ukt]
+    sumber: [ub_stat]
     entitas: bebas
+  - id: psdku-jakarta
+    q: Apakah UB punya kampus di Jakarta?
+    variasi: ["UB punya kampus atau PSDKU di Jakarta tidak?", "Program studi apa saja yang tersedia di PSDKU UB Jakarta?", "Apakah UB membuka program magister di Jakarta?", "Apakah ada program doktor UB yang diselenggarakan di Jakarta?", "Kuliah program pascasarjana UB di Jakarta ada apa saja?"]
+    a: >-
+      Ya, UB memiliki PSDKU di Jakarta. Ada program Magister Ilmu Hukum, Magister Kenotariatan, Doktor Ilmu Hukum,
+      Doktor Ilmu Manajemen, Doktor Ilmu Administrasi, serta Doktor Ilmu Akuntansi
+    sumber: [ubj_prodi]
   - id: kontak-ub
     q: Berapa nomor telepon UB?
     variasi: [nomor telepon Universitas Brawijaya, kontak UB berapa, bagaimana menghubungi UB, telepon kampus UB]
@@ -1084,8 +1073,9 @@ faq:
     q: Apa saja jalur Seleksi Mandiri UB?
     variasi: [jalur mandiri UB apa saja, seleksi mandiri Brawijaya ada jalur apa, daftar jalur mandiri UB, mandiri UB pakai nilai apa]
     a: >-
-      Pada 2026 Seleksi Mandiri UB memiliki empat jalur, yaitu Jalur Prestasi, Jalur Nilai Rapor, Jalur Nilai UTBK,
-      dan Seleksi Mandiri Penyandang Disabilitas. Pendaftaran melalui admisi.ub.ac.id. Jadwal untuk 2027 belum diumumkan.
+      Pada 2026 lalu, Seleksi Mandiri UB memiliki empat jalur, yaitu Jalur Prestasi, Jalur Nilai Rapor, Jalur Nilai
+      UTBK, dan Seleksi Mandiri Penyandang Disabilitas. Pendaftaran melalui admisi.ub.ac.id. Jadwal untuk 2027 belum
+      diumumkan.
     sumber: [detik_ukt2026]
     berlaku_hingga: "2027-06-30"
   - id: daftar-pascasarjana
@@ -1103,46 +1093,38 @@ faq:
       Ya. UB membuka jalur khusus penyandang disabilitas bersama Pusat Studi dan Layanan Disabilitas UB atau PSLD,
       yang didirikan pada 19 Maret 2012 untuk melayani mahasiswa penyandang disabilitas.
     sumber: [ub_admisi, filkom_fasilitas]
-  - id: biaya-kuliah
-    q: Berapa biaya kuliah di UB?
-    variasi: [UKT UB berapa, berapa biaya kuliah di Brawijaya, uang kuliah UB berapa, biaya kuliah UB mahal tidak]
-    a: >-
-      Untuk jalur SNBP dan SNBT, UKT kelompok 1 sebesar 500 ribu rupiah dan kelompok 2 sebesar 1 juta rupiah per semester,
-      sedangkan kelompok lebih tinggi berbeda tiap prodi. Jalur mandiri membayar UKT ditambah IPI sekali bayar.
-      Rincian per prodi ada di selma.ub.ac.id.
-    sumber: [kompas_ukt2026, selma_ukt, selma_ipi]
   - id: kelompok-ukt
     q: Bagaimana kelompok UKT ditentukan?
     variasi: [cara menentukan golongan UKT, UKT ditentukan dari apa, apakah UKT bisa dipilih sendiri]
     a: >-
-      Kelompok UKT ditentukan dari data kemampuan ekonomi orang tua, bukan dipilih sendiri. Untuk jalur SNBP dan SNBT,
-      UKT kelompok 1 sebesar 500 ribu rupiah dan kelompok 2 sebesar 1 juta rupiah per semester.
-    sumber: [kompas_ukt2026]
+      Kelompok UKT ditentukan dari data kemampuan ekonomi orang tua, bukan dipilih sendiri. Informasi bersifat
+      fluktuatif, cek website resmi kami ya! selma.ub.ac.id
+    sumber: [selma_ukt]
   - id: ipi
     q: Apa itu IPI di UB?
     variasi: [IPI itu apa, apakah jalur SNBT bayar IPI, iuran pengembangan institusi UB]
     a: >-
       IPI atau Iuran Pengembangan Institusi hanya berlaku untuk jalur mandiri dan dibayar sekali di awal kuliah.
-      Besarnya untuk tahun 2026 diatur dalam Peraturan Rektor Nomor 123 Tahun 2025.
+      Selengkapnya, cek website resmi kami, selma.ub.ac.id
     sumber: [selma_ipi, detik_ukt2026]
     berlaku_hingga: "2027-06-30"
-  - id: biaya-kedokteran
-    q: Berapa biaya kuliah Kedokteran UB jalur mandiri?
-    variasi: [UKT kedokteran UB berapa, biaya masuk FK UB jalur mandiri, IPI kedokteran Brawijaya, mahal tidak kuliah kedokteran di UB]
+  - id: filosofi-brawijaya
+    q: Apa filosofi Brawijaya
+    variasi: ["Apa empat pilar filosofi Brawijaya?", "Apa saja nilai yang terkandung dalam filosofi Brawijaya?", "Apa makna filosofi Brawijaya yang disampaikan Rektor UB?", "Filosofi Brawijaya mencakup nilai apa saja?", "Apa yang dimaksud dengan empat pilar Brawijaya?"]
     a: >-
-      Pada jalur mandiri 2026, UKT Kedokteran 19,16 juta sampai 24 juta rupiah per semester, dengan IPI 150 juta
-      sampai 225 juta rupiah.
-    sumber: [detik_ukt2026, selma_ipi]
-    berlaku_hingga: "2027-06-30"
-    entitas: F07
+      Pertama, Menyatukan keragaman seluruh sivitas akademik UB yang berasal dari berbagai suku, agama, dan ras dari
+      Sabang sampai Merauke. Kedua, Mewujudkan keterbukaan tingkat internasional melalui penerimaan dan penyediaan
+      beasiswa bagi mahasiswa asing guna menyebarkan budaya dan peradaban Indonesia ke dunia. Ketiga, Berkomitmen
+      menjadi Kampus Toleran dan Anti Radikalisme, salah satunya lewat kerja sama resmi dengan Densus 88 AT Polri
+      dan BNPT. Keempat, Menjamin kesetaraan hak bagi seluruh civitas academika, baik dalam aspek gender maupun
+      aksesibilitas bagi mahasiswa difabel.
+    sumber: [kanal24_filosofi]
 
   # ---------------------------------------------------------------- kalender dan wisuda
   - id: semester-ganjil
-    q: Kapan perkuliahan semester ganjil 2026/2027?
-    variasi: [kapan UAS semester ini, kuliah semester ganjil selesai kapan, kalender akademik semester ganjil, semester ganjil berakhir kapan]
-    a: >-
-      Perkuliahan semester ganjil 2026/2027, termasuk UTS dan UAS, berlangsung 18 Agustus sampai 18 Desember 2026.
-      Semester ganjil berakhir 8 Januari 2027.
+    q: Kapan perkuliahan semester ganjil 2027/2028?
+    variasi: ["Kapan UAS semester ganjil 2027/2028?", "Kapan perkuliahan semester ganjil 2027/2028 berakhir?", "Di mana saya bisa melihat kalender akademik semester ganjil 2027/2028?", "Kapan semester ganjil 2027/2028 berakhir?"]
+    a: Saat ini belum ada informasinya. Cek di website kami www.ub.ac.id
     sumber: [kalender_akademik]
     berlaku_hingga: "2027-01-08"
   - id: semester-genap
@@ -1154,18 +1136,18 @@ faq:
     sumber: [kalender_akademik]
     berlaku_hingga: "2027-07-30"
   - id: wisuda-berikutnya
-    q: Kapan wisuda UB berikutnya?
-    variasi: [kapan wisuda UB, jadwal wisuda Brawijaya, wisuda periode berikutnya kapan, wisuda bulan November tanggal berapa]
+    q: Berapa kali UB wisuda
+    variasi: ["Dalam setahun, wisuda UB diadakan berapa kali?", "Biasanya ada berapa periode wisuda di UB setiap tahun?", "Berapa kali UB menyelenggarakan prosesi wisuda dalam setahun?", "Jumlah periode wisuda UB dalam satu tahun berapa?"]
     a: >-
-      Wisuda periode tujuh dan delapan tahun akademik 2026/2027 digelar pada Sabtu 14 November dan Minggu 15 November 2026,
-      pukul 07.30 sampai 11.30, di Gedung Samantha Krida.
-    sumber: [ub_wisuda78]
-    berlaku_hingga: "2026-11-15"
+      Kira kira 12 periode setahun, bergantung pada kebijakan kampus. Selengkapnya cek di website resmi kami
+      www.ub.ac.id
+    sumber: [ub_wisuda56]
   - id: tempat-wisuda
     q: Di mana wisuda UB diadakan?
     variasi: [wisuda UB di gedung apa, lokasi wisuda Brawijaya, cara daftar wisuda UB]
     a: >-
-      Wisuda UB digelar di Gedung Samantha Krida. Pendaftaran wisuda dilakukan melalui bagian akademik fakultas masing-masing.
+      Selama ini Wisuda UB digelar di Gedung Samantha Krida. Tapi, bergantung pada kebijakan kampus juga.
+      Pendaftaran wisuda dilakukan melalui bagian akademik fakultas masing-masing.
     sumber: [ub_wisuda56]
   - id: pendamping-wisuda
     q: Berapa pendamping yang boleh dibawa saat wisuda?
@@ -1177,16 +1159,16 @@ faq:
   - id: toga
     q: Di mana memesan toga wisuda UB?
     variasi: [pesan toga di mana, beli toga wisuda UB, warna kerah toga UB]
-    a: Toga wajib dipakai sesuai Peraturan Rektor Nomor 59 Tahun 2026 dan bisa dipesan melalui KPRI UB, dengan warna kerah sesuai identitas fakultas.
-    sumber: [ub_wisuda56, ub_wisuda78]
+    a: "Toga bisa dipesan melalui KPRI UB, dengan warna kerah sesuai identitas fakultas."
+    sumber: [ub_wisuda56]
 
   # ---------------------------------------------------------------- fasilitas
   - id: fasilitas-kesehatan
     q: Apa saja fasilitas kesehatan di UB?
-    variasi: [rumah sakit UB di mana, klinik di UB ada tidak, kalau sakit di kampus ke mana, apakah UB punya rumah sakit, poliklinik UB]
+    variasi: ["Rumah sakit apa saja yang ada di UB?", klinik di UB ada tidak, kalau sakit di kampus ke mana, apakah UB punya rumah sakit, poliklinik UB]
     a: >-
-      UB memiliki Poliklinik UB, Rumah Sakit Universitas Brawijaya atau RSUB, Rumah Sakit Gigi dan Mulut UB,
-      dan Rumah Sakit Hewan Pendidikan UB. RSUB terakreditasi KARS Paripurna.
+      UB memiliki Poliklinik UB, Rumah Sakit Universitas Brawijaya atau RSUB, Rumah Sakit Gigi dan Mulut UB, dan
+      Rumah Sakit Hewan Pendidikan UB. RSUB terakreditasi KARS Paripurna.
     sumber: [ub_kesehatan, ub_prestasi]
   - id: perpustakaan
     q: Bagaimana layanan perpustakaan UB?
@@ -1233,11 +1215,13 @@ faq:
     sumber: [ub_stat, ub_prestasi]
   - id: dana-abadi
     q: Apa itu Dana Abadi UB?
-    variasi: [dana abadi Brawijaya, beasiswa dana abadi UB, berapa dana abadi UB]
+    variasi: [dana abadi Brawijaya, beasiswa dana abadi UB, "Untuk apa Dana Abadi UB digunakan?"]
     a: >-
-      Dana Abadi UB terkumpul sekitar 76 miliar rupiah pada 2025. Beasiswa Dana Abadi pertama disalurkan pada 12 Agustus 2025
-      kepada 50 mahasiswa dari keluarga kurang mampu, berupa subsidi UKT 3,5 juta rupiah per semester hingga semester delapan.
-    sumber: [prasetya_danaabadi]
+      Dana Abadi UB adalah dana terpisah dari dana operasional UB yang dikelola untuk mendukung beasiswa, riset,
+      pengabdian masyarakat, dan tridharma perguruan tinggi demi mewujudkan World Class University. Dana abadi
+      ditujukan untuk memberikan ruang untuk terciptanya peran aktif masyarakat dalam pendanaan penyelenggaraan
+      pendidikan tinggi di UB, mendukung pengembangan UB, dan mendukung pencapaian visi dan misi UB.
+    sumber: [prhukum_danaabadi]
   - id: beasiswa
     q: Apa saja beasiswa di UB?
     variasi: [beasiswa UB apa saja, cara dapat beasiswa di UB, info beasiswa Brawijaya, ada beasiswa untuk mahasiswa kurang mampu tidak]
@@ -1254,9 +1238,9 @@ faq:
     q: Apa saja UKM di UB?
     variasi: [unit kegiatan mahasiswa UB apa saja, organisasi mahasiswa di UB, ekstrakurikuler di UB, UKM yang ada di Brawijaya]
     a: >-
-      UKM di UB terbagi dalam bidang penalaran, kesenian, olahraga, minat khusus, dan kerohanian. Contohnya pers mahasiswa UAPKM,
-      Paduan Suara Mahasiswa, Teater Kutub, Marching Band, Resimen Mahasiswa, Impala pecinta alam, Pramuka, serta berbagai
-      UKM olahraga dan bela diri.
+      Ada banyak sekali. UKM di UB terbagi dalam bidang penalaran, kesenian, olahraga, minat khusus, dan kerohanian.
+      Contohnya pers mahasiswa UAPKM, Paduan Suara Mahasiswa, Teater Kutub, Marching Band, Resimen Mahasiswa, Impala
+      pecinta alam, Pramuka, serta berbagai UKM olahraga dan bela diri.
     sumber: [ub_ukm]
   - id: ukm-olahraga
     q: Apa saja UKM olahraga di UB?
@@ -1268,12 +1252,6 @@ faq:
     sumber: [ub_ukm]
 
   # ---------------------------------------------------------------- FILKOM (lokasi robot)
-  - id: gedung-tertinggi
-    q: Apa gedung tertinggi di UB?
-    variasi: [gedung paling tinggi di UB, gedung F itu gedung apa, gedung tertinggi Brawijaya]
-    a: Gedung tertinggi di UB adalah Gedung F milik Fakultas Ilmu Komputer atau FILKOM.
-    sumber: [filkom_fasilitas]
-    entitas: F14
   - id: departemen-filkom
     q: Apa saja departemen di FILKOM?
     variasi: [FILKOM punya departemen apa saja, departemen di Fakultas Ilmu Komputer, ada berapa departemen di FILKOM]
@@ -1304,18 +1282,6 @@ faq:
     a: Kantor dekan FILKOM berada di Gedung F lantai 7.
     sumber: [filkom_struktur]
     entitas: F14
-  - id: lab-robotika
-    q: Di mana laboratorium robotika FILKOM?
-    variasi: [lab robotika di mana, laboratorium robot FILKOM ada di gedung apa, di mana lab embedded system FILKOM, tempat lab robot di FILKOM]
-    a: Laboratorium Robotika dan Embedded System FILKOM UB berada di Gedung F Fakultas Ilmu Komputer.
-    sumber: [filkom_labs]
-    entitas: F14
-  - id: lab-brone
-    q: Di mana letak laboratorium pengembangan BRONE?
-    variasi: [lab BRONE di mana, di mana ruang tim robot BRONE, laboratorium pengembangan robot BRONE ada di mana, tempat pengembangan Bron di mana, markas tim BRONE di mana]
-    a: Ada di FILKOM Gedung A, naik ke lantai 2, ruangannya di depan Ruang Kerja Bersama A dua dua empat.
-    sumber: [tim_brone]
-    entitas: F14
   - id: lab-filkom
     q: Apa saja laboratorium di FILKOM?
     variasi: [lab di FILKOM ada apa saja, berapa laboratorium FILKOM, laboratorium Fakultas Ilmu Komputer, daftar lab FILKOM]
@@ -1338,14 +1304,6 @@ faq:
     a: Auditorium Algoritma ada di lantai 2 Gedung G FILKOM, dan Mini Teater Heuristik ada di lantai 2 Gedung A.
     sumber: [filkom_fasilitas]
     entitas: F14
-  - id: smart-class-filkom
-    q: Di mana Smart Class dan ruang baca FILKOM?
-    variasi: [ruang baca FILKOM di mana, smart class lantai berapa, tempat belajar di FILKOM]
-    a: >-
-      Smart Class ada di lantai 2, 3, dan 4 Gedung F, sedangkan Ruang Baca ada di koridor lantai 2 antara Gedung F
-      dan Gedung G FILKOM.
-    sumber: [filkom_fasilitas]
-    entitas: F14
   - id: gkm-filkom
     q: Apa itu Gedung Kreativitas Mahasiswa FILKOM?
     variasi: [ruang himpunan FILKOM di mana, helipad drone FILKOM, co-working space FILKOM, gedung kreativitas mahasiswa ada apa saja]
@@ -1357,7 +1315,7 @@ faq:
   - id: mushola-filkom
     q: Di mana mushola FILKOM?
     variasi: [tempat salat di FILKOM, mushola Ulul Albab di mana, masjid dekat FILKOM]
-    a: Mushola Ulul Al-Baab berada di sebelah Gedung Kreativitas Mahasiswa FILKOM.
+    a: Mushola Ulul Albab berada di sebelah Gedung Kreativitas Mahasiswa FILKOM
     sumber: [filkom_fasilitas]
     entitas: F14
   - id: konseling-filkom
@@ -1370,8 +1328,8 @@ faq:
     q: Apakah gedung FILKOM ramah disabilitas?
     variasi: [fasilitas disabilitas di FILKOM, lift di FILKOM ada tidak, parkir disabilitas FILKOM]
     a: >-
-      Ya. Gedung-gedung FILKOM dilengkapi ramp, lift yang ramah tunanetra, toilet khusus disabilitas di setiap gedung,
-      dan parkir khusus penyandang disabilitas di basemen Gedung F dan G.
+      Gedung-gedung FILKOM dilengkapi ramp, lift yang ramah tunanetra, toilet khusus disabilitas di setiap gedung,
+      dan parkir khusus penyandang disabilitas di basemen Gedung F dan G. Fasilitas ini berlaku di seluruh fakultas.
     sumber: [filkom_fasilitas]
     entitas: F14
   - id: skripsi-filkom
@@ -1386,15 +1344,13 @@ faq:
     a: Instagram resmi FILKOM adalah filkomub.
     sumber: [filkom_fasilitas]
     entitas: F14
-  - id: sosialisasi-ortu-filkom
-    q: Kapan sosialisasi orang tua mahasiswa baru FILKOM?
-    variasi: [acara FILKOM terdekat, sosialisasi akademik orang tua FILKOM 2026, pertemuan orang tua mahasiswa baru FILKOM]
+  - id: lokasi-psdku-jakarta
+    q: Di mana PSDKU Jakarta?
+    variasi: [di mana PSDKU UB Jakarta, PSDKU Jakarta di mana, alamat PSDKU UB Jakarta, lokasi kampus UB di Jakarta, kampus UB Jakarta ada di mana]
     a: >-
-      Sosialisasi Akademik Orang Tua Mahasiswa Baru FILKOM angkatan 2026 diadakan pada 31 Oktober 2026 pukul 08.00
-      di Auditorium Algoritma Gedung G lantai 2.
-    sumber: [filkom_home]
-    berlaku_hingga: "2026-10-31"
-    entitas: F14
+      PSDKU UB Jakarta terletak di Jalan Doktor Saharjo Nomor 313, Tebet Barat, Kecamatan Tebet, Kota Jakarta
+      Selatan.
+    sumber: [tim_brone_20261027]
 
 # ===========================================================================
 # ALIAS FAKULTAS: kata/frasa yang menandakan pertanyaan menyebut fakultas tertentu.
@@ -1511,3 +1467,8 @@ sumber:
   filkom_workshop2024: {judul: "Workshop Pengembangan Teknologi Robot UB x Chukyo University (4 Sep 2024)", url: "https://filkom.ub.ac.id/2024/09/04/implementasi-kerjasama-luar-negeri-workshop-pengembangan-teknologi-robot-antara-ub-dan-chukyou-university-japan/"}
   filkom_pitoyo2026: {judul: "FILKOM UB Sambut Prof. Pitoyo Hartono (4 Sep 2026)", url: "https://filkom.ub.ac.id/2026/09/04/filkom-ub-sambut-prof-pitoyo-hartono-bahas-riset-robotika-hingga-tren-karier-di-jepang/"}
   tim_brone: {judul: "Konfirmasi tim BRONE (user, 5 Okt 2026) + kode brone-talk", url: ""}
+  prhukum_danaabadi: {judul: "Peraturan Rektor UB 73/2024 tentang Pengelolaan Dana Abadi UB", url: "https://divisihukum.ub.ac.id/storage/file/b077MxXau7Per-73-2024-Pengelolaan%20Dana%20Abadi%20UB.pdf"}
+  kanal24_filosofi: {judul: "Kanal24: Rektor UB Serukan 4 Pilar Filosofi Brawijayan", url: "https://kanal24.co.id/rektor-ub-serukan-4-pilar-filosofi-brawijayan/"}
+  fib_brone: {judul: "FIB UB: Layanan BRONE UB", url: "https://fib.ub.ac.id/id/layanan/brone-ub/"}
+  ubj_prodi: {judul: "UB Jakarta: Program Studi", url: "https://ubj.ub.ac.id/program-studi/indonesia-jurusan-program-studi/"}
+  tim_brone_20261027: {judul: "Konfirmasi tim BRONE (user, 27 Okt 2026)", url: ""}
