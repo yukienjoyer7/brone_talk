@@ -106,7 +106,7 @@ Isi kosong (`BRONE_KWS_MODEL=`) = mode lama (nama disebut di teks STT). Model ti
   menampilkan daftar yang sama.
 - **Tidak ada semantic cache.** Jawaban LLM tidak disimpan untuk dipakai ulang, supaya tidak ada
   jawaban basi.
-- **Cloud 5 detik** (produksi). Kode lama default 8 detik. Lewat batas, pindah ke LLM lokal.
+- **Cloud 5 detik** (produksi). Kode lama default 8 detik. Lewat batas, pertanyaan ditolak; mode auto tidak memakai LLM lokal.
 - **Riwayat tidak dipakai.** `BRONE_HISTORY_MESSAGES` ada di unit lama tetapi mesin v4 tidak memakai
   riwayat percakapan; hanya pertanyaan sebelumnya yang dipakai untuk pertanyaan pendek.
 
@@ -123,6 +123,8 @@ Isi kosong (`BRONE_KWS_MODEL=`) = mode lama (nama disebut di teks STT). Model ti
 - RAG v1, v2, v3 (RagLite*), `knowledge.txt`, dan semua jalur Ollama/DeepSeek di kelas `Conversation`.
   Mesin v4 menggantikannya seluruhnya.
 - Soniox STT dan TTS (Soniox TTS dihapus 14 Okt 2026). Google STT juga tidak dipakai produksi.
+- Mode LLM lokal dan variabel `BRONE_LOCAL_URL`, `BRONE_LOCAL_MODEL`, `BRONE_LOCAL_TIMEOUT_SECONDS`.
+  Mode `auto` dan `cloud` hanya memakai DeepSeek; `faq` tidak memakai LLM.
 - `BRONE_ENGINE=legacy`. Tidak ada lagi jalur lama di repo ini.
 - Skrip pengembangan lama (`_bench_*.py`, berkas `.bak*`). Riwayat sekarang di git.
 
@@ -131,7 +133,7 @@ Isi kosong (`BRONE_KWS_MODEL=`) = mode lama (nama disebut di teks STT). Model ti
 - **Unit tetap `brone-talk.service`.** `state_machine_node.py` memanggil nama itu lewat systemctl,
   jadi nama tidak diubah.
 - **Nama unit llama.cpp (`brone-v4-*`) belum diganti.** Layanan itu sedang dipakai. Penggantian
-  ke `brone-llm|embed|rerank` ditunda sampai cutover, supaya tidak memutus layanan yang hidup.
+  ke `brone-embed|rerank` ditunda sampai cutover, supaya tidak memutus layanan yang hidup.
 - **Serial perangkat di konfigurasi PipeWire disensor** di salinan repo. Nilai aslinya tetap di
   `~/.config/pipewire/pipewire.conf.d/` di NUC.
 - **Rahasia tidak masuk repo.** Kunci DeepSeek dan MAI dibaca dari

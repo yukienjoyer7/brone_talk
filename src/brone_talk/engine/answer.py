@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 
+from brone_talk.config import validate_engine_mode
 from brone_talk.engine.util import norm_text
 from brone_talk.engine.context import FollowUpContext
 from brone_talk.engine.servers import Embedder
@@ -53,7 +54,7 @@ _FUN_REQUESTS = [
 # LLM obrolan kadang tetap memakai "aku"/"saya" untuk dirinya; tim memilih "Bron"
 _SELF_RE = re.compile(r"\b(aku|saya)\b", re.I)
 
-# galat backend LLM yang membuat kita mencoba backend berikutnya
+# galat backend LLM yang menghasilkan penolakan
 _LLM_ERRORS = (OSError, urllib.error.URLError, ValueError, KeyError)
 _CLOUD_RETRY_S = 30.0  # tanpa pemantau internet: jeda sebelum LLM cloud dicoba lagi setelah gagal
 
@@ -99,11 +100,15 @@ class EngineConfig:
     chat_llm: bool = True  # obrolan di luar daftar dijawab LLM persona (bukan mode faq)
     startup_wait_s: float = 120.0
 
+    def __post_init__(self) -> None:
+        validate_engine_mode(self.mode)
+
 
 class AnswerEngine:
+    net: Any = None  # pemantau internet bersama (diisi app.py); None = pakai jeda 30 s setelah cloud gagal
+    _cloud_failed_at = 0.0
+
     def __init__(self, cfg: EngineConfig) -> None:
-        if cfg.mode not in ("auto", "cloud", "faq"):
-            raise ValueError(f"BRONE_MODE tidak valid: {cfg.mode!r}; gunakan auto, cloud, atau faq")
         self.cfg = cfg
         cfg.runtime_dir.mkdir(parents=True, exist_ok=True)
         self.embedder = Embedder(cfg.embed_url, cfg.runtime_dir / "embcache.json")
@@ -193,8 +198,9 @@ class AnswerEngine:
 
         rec[key] = backend terakhir yang menjawab; kembalian (json atau None, daftar galat).
         """
-        errors: list[str] = []
-        for be in self._backends():
+        backends = self._backends()
+        errors: list[str] = [] if backends else ["LLM tidak tersedia"]
+        for be in backends:
             try:
                 raw, stats = be.chat(messages, temperature=temperature)
             except _LLM_ERRORS as exc:
@@ -259,7 +265,7 @@ class AnswerEngine:
         """Jawab satu ucapan (text = sudah lengkap). replying_to: kata-kata Bron yang sedang ditanggapi, atau "".
 
         Urutan: hiburan (kata kunci) -> FAQ / obrolan berjawaban tetap -> permintaan gerakan
-        -> RAG + LLM (cloud lalu lokal) -> grounding. Tanpa data UB, obrolan dijawab LLM persona.
+        -> RAG + LLM (cloud dalam mode auto) -> grounding. Tanpa data UB, obrolan dijawab LLM persona.
         """
         t0 = time.perf_counter()
         text = text.strip()

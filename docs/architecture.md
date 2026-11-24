@@ -37,7 +37,7 @@ Urutan per pertanyaan (`engine/answer.py`, `AnswerEngine.answer`):
 5. **Retrieval dense** (`engine/retrieval.py`): kosinus bge-m3 pada 224 chunk terstruktur.
 6. **Gerbang kemiripan**: kosinus chunk teratas di bawah `BRONE_CHUNK_MIN_SIM` (0,60) -> tidak ada
    data UB: obrolan dijawab LLM persona (`CHAT_PROMPT`), permintaan info ditolak ("belum punya informasi").
-7. **LLM**: hanya DeepSeek cloud (LFM2.5 lokal dihapus 24 Nov 2026). Gagal atau lewat batas waktu -> jawaban ditolak sopan; FAQ dan obrolan tetap tidak butuh LLM.
+7. **LLM**: mode auto dan cloud memakai DeepSeek; jika gagal, lewat batas waktu, atau menghasilkan JSON tidak valid, permintaan yang membutuhkan LLM ditolak. Mode faq tidak memanggil LLM.
    Prompt dan format JSON di `engine/llm.py`.
 8. **Cek grounding** (`engine/grounding.py`): angka dan nama di jawaban harus ada di konteks,
    bila tidak jawaban diganti penolakan.

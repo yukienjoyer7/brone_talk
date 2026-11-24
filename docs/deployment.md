@@ -33,6 +33,19 @@ disalin ke `~/.config/pipewire/pipewire.conf.d/`:
   sudah berjalan di NUC (`target.object`), jangan dari repo.
 - `<HOME>`: home user NUC (mis. `/home/<user>`), untuk plugin RNNoise.
 
+## Migrasi dari LLM lokal
+
+Mode `BRONE_MODE=local` sudah dihapus dan menyebabkan galat konfigurasi. Ubah menjadi `auto`
+atau `cloud` untuk DeepSeek, atau `faq` untuk jawaban tanpa LLM. Variabel lama `BRONE_LOCAL_URL`,
+`BRONE_LOCAL_MODEL`, dan `BRONE_LOCAL_TIMEOUT_SECONDS` tidak lagi dibaca dan dapat dihapus dari
+EnvironmentFile dan drop-in. `make install` memperbarui `brone-talk-next`, bukan unit produksi
+`brone-talk`; perbarui unit produksi saat cutover sesuai langkah di bawah, lalu jalankan
+`systemctl --user daemon-reload`. Periksa juga drop-in dengan `systemctl --user cat` untuk unit terkait.
+Unit lama `brone-v4-llm.service` tidak dihentikan otomatis oleh perubahan repo. Setelah memastikan
+tidak ada aplikasi lain atau jalur rollback yang memakainya, unit itu dapat dihentikan dan
+dinonaktifkan dengan `systemctl --user disable --now brone-v4-llm.service`. Pertahankan layanan
+embedding dan reranking.
+
 ## Uji tanpa mengganggu robot
 
 Versi produksi dan repo baru tidak boleh jalan bersamaan (mic dan speaker satu). Urutannya:
@@ -84,5 +97,5 @@ Dilakukan hanya setelah smoke test lulus semua dan Anda setuju:
 
 ## Setelah cutover
 
-- Ganti nama unit llama.cpp (`brone-v4-*` menjadi `brone-llm|embed|rerank`), hanya bila perlu.
+- Ganti nama unit llama.cpp (`brone-v4-*` menjadi `brone-embed|rerank`), hanya bila perlu.
 - Hapus `~/brone-talk-v4` dan `~/brone-talk` setelah beberapa hari stabil. Simpan `models/`.

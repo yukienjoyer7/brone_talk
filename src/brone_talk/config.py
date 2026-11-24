@@ -130,6 +130,11 @@ class TtsConfig:
     textnorm_dir: str = str(ROOT / "models" / "voices" / "brone_D21_teks")  # BRONE_TTS_TEXTNORM: kosong = news_tts
 
 
+def validate_engine_mode(mode: str) -> None:
+    if mode not in {"auto", "cloud", "faq"}:
+        raise ValueError(f"BRONE_MODE tidak valid: {mode!r}; gunakan auto, cloud, atau faq")
+
+
 @dataclass(frozen=True)
 class EngineSettings:
     """Pengaturan mesin jawaban (brone_talk.engine.answer.EngineConfig), diisi di sini."""
@@ -158,6 +163,9 @@ class EngineSettings:
     grounding: bool = True  # BRONE_GROUNDING
     chat_llm: bool = True  # BRONE_CHAT_LLM: obrolan di luar kb/smalltalk.yaml dijawab LLM persona
     server_wait_s: float = 120.0  # BRONE_SERVER_WAIT_SECONDS
+
+    def __post_init__(self) -> None:
+        validate_engine_mode(self.mode)
 
 
 @dataclass(frozen=True)

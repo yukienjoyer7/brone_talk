@@ -77,7 +77,9 @@ bash deploy/tts_voice.sh baru|lama   # suara TTS: D21 fine-tune (default) / news
 ```
 
 Rahasia (`BRONE_DEEPSEEK_API_KEY`, `BRONE_MAI_API_KEY`) hanya ada di `~/.config/brone-talk/brone.env`.
-Repo ini tidak menyimpan kunci. Kosongkan `BRONE_KWS_MODEL` untuk kembali ke mode lama (nama disebut di
+Repo ini tidak menyimpan kunci. `BRONE_MODE=auto` dan `cloud` memakai DeepSeek tanpa fallback LLM;
+`faq` menonaktifkan LLM. Mode `local` sudah dihapus. Jawaban FAQ dan obrolan tetap tidak memerlukan LLM.
+Kosongkan `BRONE_KWS_MODEL` untuk kembali ke mode lama (nama disebut di
 teks STT).
 
 ## Struktur
