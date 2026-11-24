@@ -84,6 +84,38 @@ def schedule(chunks: Iterable[Sequence[tuple[str, int]]], sample_rate: int, offs
     return jadwal
 
 
+# --- Streaming TTS (24 Nov 2026): kalimat 1 diputar sebelum kalimat berikutnya selesai disintesis, jadi durasi total
+# belum diketahui saat suara mulai. Paket kalimat 1 membawa perkiraan yang SENGAJA lebih panjang (D21 terukur paling
+# lambat 0,073 s/karakter pada 273 kalimat/jawaban uji; dipakai 0,12) agar mulut fallback GUI tidak berhenti sebelum
+# suara habis. tts/done tetap menutup mulut tepat saat audio selesai; paket kalimat berikutnya menghapus timer idle.
+STREAM_EST_S_PER_CHAR = 0.12
+STREAM_EST_MARGIN_S = 0.5
+
+
+def estimate_total_s(first_s: float, rest_text: str) -> float:
+    """Perkiraan durasi seluruh jawaban saat baru kalimat pertama (first_s detik) yang tersintesis."""
+    rest = len(" ".join(rest_text.split()))
+    return round(first_s + (STREAM_EST_S_PER_CHAR * rest + STREAM_EST_MARGIN_S if rest else 0.3), 2)
+
+
+def face_payload(expression: str, jadwal: list[dict] | None, duration_s: float | None = None) -> dict:
+    """Paket robot/expression per kalimat untuk streaming TTS.
+
+    Kalimat 1: dengan duration (perkiraan total) -> GUI memulai mulut/ekspresi seperti biasa.
+    Kalimat 2 dst.: TANPA duration -> GUI fallback tidak memulai ulang mulut dari DIAM (kedip ~150 ms per kalimat di
+    uji 24 Nov), timer idle mode bawaan terhapus, dan GUI streaming memulai kalimat tepat saat paket kalimat tiba.
+    """
+    known = bool(expression) and expression.lower() in GUI_EXPRESSIONS
+    payload: dict = {}
+    if known or duration_s is not None:
+        payload["expression"] = expression if known else "speaking"
+    if duration_s is not None:
+        payload["duration"] = round(duration_s, 2)
+    if jadwal:
+        payload["viseme"] = jadwal
+    return payload
+
+
 def speech_payload(expression: str, duration_s: float, jadwal: list[dict] | None) -> dict:
     """Paket robot/expression saat audio mulai. Ekspresi yang tidak dikenal GUI membuat seluruh pesan ditolak,
     jadi diganti "speaking" (GUI: bicara mulai, mulut tetap jalan). jadwal None/kosong -> tanpa field viseme."""

@@ -1,6 +1,7 @@
 import unittest
 
-from brone_talk.tts.viseme import schedule, sentence_packets, speech_payload, split_sentences
+from brone_talk.tts.viseme import (estimate_total_s, face_payload, schedule, sentence_packets, speech_payload,
+                                   split_sentences)
 
 SR = 22050
 VALID = {"A", "I", "U", "E", "O", "REST", "DIAM"}  # VALID_VISEME BroneGUI-Tauri (protocol.rs)
@@ -84,6 +85,23 @@ class SentenceModeTest(unittest.TestCase):
         self.assertTrue(p["sentence"].startswith("Satu dua "))
         self.assertLessEqual(len(p["sentence"]), 4096)
         self.assertEqual(sentence_packets("neutral", "Ya.", [10], SR, 1.0)[0][1]["expression"], "neutral")
+
+
+class StreamingFaceTest(unittest.TestCase):
+    def test_estimate_never_shorter_than_d21(self):
+        # D21 paling lambat 0,073 s/karakter (273 kalimat uji): perkiraan harus lebih panjang dari itu
+        rest = "Gedungnya di jalan Veteran, Malang. Mau tahu jam layanannya?"
+        self.assertGreater(estimate_total_s(2.8, rest), 2.8 + 0.073 * len(rest))
+        self.assertEqual(estimate_total_s(2.8, ""), 3.1)  # satu kalimat: durasi asli + 0,3 s
+
+    def test_first_packet_has_duration_next_do_not(self):
+        j = [{"t": 0.0, "v": "A"}, {"t": 1.0, "v": "DIAM"}]
+        self.assertEqual(face_payload("happy", j, 6.4), {"expression": "happy", "duration": 6.4, "viseme": j})
+        # tanpa duration: GUI fallback tidak memulai ulang mulut, timer idle mode bawaan terhapus
+        self.assertEqual(face_payload("happy", j), {"expression": "happy", "viseme": j})
+        self.assertEqual(face_payload("bangga", j), {"viseme": j})  # nama tak dikenal tanpa durasi: jadwal saja
+        self.assertEqual(face_payload("bangga", None, 2.0), {"expression": "speaking", "duration": 2.0})
+        self.assertEqual(face_payload("bangga", None), {})
 
 
 if __name__ == "__main__":
