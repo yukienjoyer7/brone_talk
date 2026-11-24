@@ -29,6 +29,14 @@ class SpokenD21(unittest.TestCase):
         self.assertEqual("Iya, betul.", self.spoken("Iya, betul."))
         self.assertIn("ya", self.spoken("Sebentar ya. Bron carikan."))
 
+    def test_brone_said_bron(self):
+        # nama robot diucapkan "bron" di semua ejaan (espeak membaca "Brone" sebagai /brˈonə/)
+        for text in ("BRONE", "Brone", "brone", "Bron", "BRONE-nya", "Brone-nya", "Halo, aku Brone.", "Tim BRONE dari FILKOM"):
+            out = self.spoken(text)
+            self.assertNotRegex(out, r"(?i)brone", text)
+            self.assertRegex(out, r"(?i)\bbron\b", text)
+        self.assertEqual("Halo, aku bron.", self.spoken("Halo, aku Brone."))  # lexicon: Bron -> bron
+
     def test_markdown_and_old_map(self):
         out = self.spoken("**Bank BRI** ada di dekat UGM.")
         self.assertNotIn("*", out)
