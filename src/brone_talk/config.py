@@ -65,7 +65,8 @@ class AudioConfig:
     end_silence_s: float = 0.8  # BRONE_END_SILENCE_SECONDS
     min_speech_s: float = 0.35  # BRONE_MIN_SPEECH_SECONDS
     max_utterance_s: float = 8.0  # BRONE_MAX_UTTERANCE_SECONDS (kode lama: 12)
-    min_utterance_rms: float = 0.030  # BRONE_MIN_UTTERANCE_RMS
+    # 20 Nov 2026: 0.030 -> 0.005, STT kuat; hanya buang klip nyaris senyap
+    min_utterance_rms: float = 0.005  # BRONE_MIN_UTTERANCE_RMS
     noise_reduce: bool = False  # BRONE_NOISE_REDUCE
     noise_prop_decrease: float = 0.9  # BRONE_NOISE_PROP_DECREASE
     noise_stationary: bool = False  # BRONE_NOISE_STATIONARY
@@ -73,7 +74,8 @@ class AudioConfig:
     # BRONE_KWS_MODEL kosong = mode lama (nama disebut di teks STT).
     kws_model: str = str(ROOT / "models" / "kws" / "halo_brone.onnx")  # BRONE_KWS_MODEL: kosong = mode teks
     kws_threshold: float = 0.5  # BRONE_KWS_THRESHOLD
-    kws_window_s: float = 60.0  # BRONE_KWS_WINDOW_SECONDS: jendela percakapan tanpa wake word sejak "Ya?"
+    # BRONE_KWS_WINDOW_SECONDS: 0 = tanpa batas (9 Nov 2026): sesi berlangsung sampai "selesai brone"
+    kws_window_s: float = 0.0
     kws_interrupt: bool = True  # BRONE_KWS_INTERRUPT: "halo brone" menghentikan jawaban
 
 
@@ -107,6 +109,8 @@ class MaiConfig:
     # Pemantau internet (26 Okt 2026): rute default + ping MAI tiap keepalive_s; gagal -> STT langsung whisper.
     keepalive_s: float = 5.0  # BRONE_MAI_KEEPALIVE_SECONDS
     probe_timeout_s: float = 2.0  # BRONE_MAI_PROBE_TIMEOUT_SECONDS: batas balasan ping
+    # 20 Nov 2026: saat offline probe tiap detik supaya STT+LLM cepat kembali ke cloud begitu internet pulih
+    offline_probe_s: float = 1.0  # BRONE_MAI_OFFLINE_PROBE_SECONDS
     cooldown_s: float = 30.0  # BRONE_MAI_COOLDOWN_SECONDS
     auth_cooldown_s: float = 600.0  # BRONE_MAI_AUTH_COOLDOWN_SECONDS
     ws_max_age_s: float = 600.0  # BRONE_MAI_WS_MAX_AGE_SECONDS
@@ -135,17 +139,19 @@ def validate_engine_mode(mode: str) -> None:
 class EngineSettings:
     """Pengaturan mesin jawaban (brone_talk.engine.answer.EngineConfig), diisi di sini."""
 
-    mode: str = "auto"  # BRONE_MODE: auto, cloud, atau faq
+    mode: str = "auto"  # BRONE_MODE: auto | cloud | faq
     cloud_key: str = ""  # BRONE_DEEPSEEK_API_KEY (dari deepseek.env)
     cloud_url: str = "https://api.deepseek.com/chat/completions"  # BRONE_DEEPSEEK_URL
     cloud_model: str = "deepseek-flash"  # BRONE_DEEPSEEK_MODEL
     cloud_timeout_s: float = 5.0  # BRONE_CLOUD_TIMEOUT_SECONDS (kode lama: 8)
     embed_url: str = "http://127.0.0.1:8082"  # BRONE_EMBED_URL
-    rerank_url: str = "http://127.0.0.1:8083"  # BRONE_RERANK_URL
-    rerank_min: float = 0.30  # BRONE_RERANK_MIN
-    rerank_top: int = 8  # BRONE_RERANK_TOP
-    rerank_doc_chars: int = 700  # BRONE_RERANK_DOC_CHARS
-    rerank_timeout_s: float = 10.0  # BRONE_RERANK_TIMEOUT_SECONDS
+    # Gerbang RAG: kemiripan kosinus chunk teratas (bge-m3) minimal ini, bila tidak robot menolak tanpa LLM.
+    # Pengganti reranker (dihapus 12 Nov 2026; dikalibrasi 0,60 pada Eval-60 + 63 pertanyaan di luar cakupan).
+    chunk_min_sim: float = 0.60  # BRONE_CHUNK_MIN_SIM
+    # Konteks satu giliran: pertanyaan lanjutan pendek ("kalau FT?", "dekannya?") dilengkapi dari giliran sebelumnya.
+    followup: bool = True  # BRONE_FOLLOWUP
+    followup_ttl_s: float = 90.0  # BRONE_FOLLOWUP_TTL_SECONDS
+    followup_max_words: int = 7  # BRONE_FOLLOWUP_MAX_WORDS
     faq_min_sim: float = 0.80  # BRONE_FAQ_MIN_SIM
     faq_min_margin: float = 0.0  # BRONE_FAQ_MIN_MARGIN
     faq_stt_min_mean: float = 0.50  # BRONE_FAQ_STT_MIN_MEAN
@@ -236,6 +242,7 @@ class Settings:
             dns_timeout_s=_float(env, "BRONE_MAI_DNS_TIMEOUT_SECONDS", m.dns_timeout_s),
             keepalive_s=_float(env, "BRONE_MAI_KEEPALIVE_SECONDS", m.keepalive_s),
             probe_timeout_s=_float(env, "BRONE_MAI_PROBE_TIMEOUT_SECONDS", m.probe_timeout_s),
+            offline_probe_s=_float(env, "BRONE_MAI_OFFLINE_PROBE_SECONDS", m.offline_probe_s),
             cooldown_s=_float(env, "BRONE_MAI_COOLDOWN_SECONDS", m.cooldown_s),
             auth_cooldown_s=_float(env, "BRONE_MAI_AUTH_COOLDOWN_SECONDS", m.auth_cooldown_s),
             ws_max_age_s=_float(env, "BRONE_MAI_WS_MAX_AGE_SECONDS", m.ws_max_age_s),
@@ -257,11 +264,10 @@ class Settings:
             cloud_model=_str(env, "BRONE_DEEPSEEK_MODEL", e.cloud_model),
             cloud_timeout_s=_float(env, "BRONE_CLOUD_TIMEOUT_SECONDS", e.cloud_timeout_s),
             embed_url=_str(env, "BRONE_EMBED_URL", e.embed_url),
-            rerank_url=_str(env, "BRONE_RERANK_URL", e.rerank_url),
-            rerank_min=_float(env, "BRONE_RERANK_MIN", e.rerank_min),
-            rerank_top=_int(env, "BRONE_RERANK_TOP", e.rerank_top),
-            rerank_doc_chars=_int(env, "BRONE_RERANK_DOC_CHARS", e.rerank_doc_chars),
-            rerank_timeout_s=_float(env, "BRONE_RERANK_TIMEOUT_SECONDS", e.rerank_timeout_s),
+            chunk_min_sim=_float(env, "BRONE_CHUNK_MIN_SIM", e.chunk_min_sim),
+            followup=_flag(env, "BRONE_FOLLOWUP", e.followup),
+            followup_ttl_s=_float(env, "BRONE_FOLLOWUP_TTL_SECONDS", e.followup_ttl_s),
+            followup_max_words=_int(env, "BRONE_FOLLOWUP_MAX_WORDS", e.followup_max_words),
             faq_min_sim=_float(env, "BRONE_FAQ_MIN_SIM", e.faq_min_sim),
             faq_min_margin=_float(env, "BRONE_FAQ_MIN_MARGIN", e.faq_min_margin),
             faq_stt_min_mean=_float(env, "BRONE_FAQ_STT_MIN_MEAN", e.faq_stt_min_mean),

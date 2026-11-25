@@ -5,16 +5,18 @@ Urutan per ucapan:
   -> jawaban jam (tanpa LLM) atau mesin jawaban -> TTS.
 
 Mode wake word (default; BRONE_KWS_MODEL kosong = mode teks; desain 23 Okt, jendela 26 Okt 2026):
-  tidur -> model KWS mendengar "halo brone" -> tunggu jeda -> "Ya?" -> jendela percakapan
-  BRONE_KWS_WINDOW_SECONDS (60 s) sejak "Ya?": SEMUA pertanyaan di dalamnya dijawab tanpa menyebut
-  nama -> jendela habis -> tidur. "halo brone" di dalam jendela = "Ya?" lagi dan jendela dimulai ulang.
-  STT hanya jalan setelah bangun. Selama Bron berpikir/berbicara, "halo brone" = interupsi: jawaban
-  dibatalkan, "Ya?". Tanya-balik Bron memberi minimal BRONE_SOCIAL_AWAIT_SECONDS untuk menanggapi.
+  tidur -> model KWS mendengar "halo brone" -> sapaan "hai, Brone di sini..." -> SESI aktif:
+  SEMUA pertanyaan dijawab tanpa menyebut nama -> "selesai brone" (teks STT Mai, bukan KWS) -> tidur.
+  9 Nov 2026: sesi tidak lagi punya batas waktu (BRONE_KWS_WINDOW_SECONDS=0); hanya "selesai brone"
+  yang mengakhirinya. STT hanya jalan setelah bangun. Selama Bron berpikir/berbicara, "halo brone" =
+  interupsi: jawaban dibatalkan, sapaan diucapkan lagi. Tanya-balik Bron memberi minimal
+  BRONE_SOCIAL_AWAIT_SECONDS untuk menanggapi.
 """
 
 from __future__ import annotations
 
 import logging
+import math
 import threading
 import time
 from pathlib import Path
@@ -27,7 +29,7 @@ from brone_talk.audio.kws import InterruptMonitor, WakeHeard, WakeWord, self_wak
 from brone_talk.audio.vad import SileroVad
 from brone_talk.config import Settings
 from brone_talk.engine.answer import AnswerEngine, EngineConfig
-from brone_talk.nlu.wake import NAME_RE, call_text, clock_answer, collapse_repeats
+from brone_talk.nlu.wake import NAME_RE, SESSION_END_RE, call_text, clock_answer, collapse_repeats
 from brone_talk.session import Decision, Outcome, Session, decide
 from brone_talk.stt.filters import stt_garbage_reason, stt_strip_prompt_sentence
 from brone_talk.stt.transcriber import Transcriber
@@ -51,7 +53,6 @@ def engine_config(settings: Settings, runtime_dir: Path) -> EngineConfig:
         kb_dir=settings.kb_dir,
         runtime_dir=runtime_dir,
         embed_url=e.embed_url,
-        rerank_url=e.rerank_url,
         cloud_url=e.cloud_url,
         cloud_model=e.cloud_model,
         cloud_key=e.cloud_key,
@@ -63,10 +64,10 @@ def engine_config(settings: Settings, runtime_dir: Path) -> EngineConfig:
         stt_min_mean=e.faq_stt_min_mean,
         stt_min_seg=e.faq_stt_min_seg,
         faq_low_stt_min_sim=e.faq_low_stt_min_sim,
-        rerank_min=e.rerank_min,
-        rerank_top=e.rerank_top,
-        rerank_doc_chars=e.rerank_doc_chars,
-        rerank_timeout_s=e.rerank_timeout_s,
+        chunk_min_sim=e.chunk_min_sim,
+        followup=e.followup,
+        followup_ttl_s=e.followup_ttl_s,
+        followup_max_words=e.followup_max_words,
         context_chars=e.context_chars,
         context_chunks=e.context_chunks,
         grounding=e.grounding,
@@ -88,6 +89,7 @@ class TalkService:
         self.transcriber = Transcriber(settings.stt, settings.mai, self.telemetry)
         self.speaker = Speaker(settings.tts, settings.audio, self.telemetry, self.runtime_dir)
         self.engine = AnswerEngine(engine_config(settings, self.runtime_dir))
+        self.engine.net = self.transcriber  # satu pemantau internet untuk STT dan LLM (20 Nov 2026)
         self.session = Session()
         a = settings.audio
         self.kws = WakeWord(Path(a.kws_model), a.kws_threshold) if a.kws_model else None
@@ -149,7 +151,7 @@ class TalkService:
     def _join_answer(self) -> None:
         if self._answer_thread is not None and self._answer_thread.is_alive():
             LOG.info("Menunggu jawaban yang diinterupsi selesai di latar")
-            self._answer_thread.join(timeout=30.0)
+            self._answer_thread.join(timeout=self.settings.engine.cloud_timeout_s + 5)
 
     def _clear_conversation(self) -> None:
         self._join_answer()
@@ -241,13 +243,13 @@ class TalkService:
         if heard is None:
             return
         text, called = heard
-        outcome = decide(text, called=called, awaiting=True)
-        if outcome.decision is Decision.STOP:
+        if SESSION_END_RE.search(text):  # 9 Nov 2026: hanya "selesai brone" yang mengakhiri sesi
             self.speaker.say(messages.SAY_STOP, "neutral")
             session.end_wait()
             self._convo_until = 0.0
-            self.telemetry.stage("idle", "standby", reason="voice_stop")
+            self.telemetry.stage("idle", "standby", reason="selesai_brone")
             return
+        outcome = decide(text, called=called, awaiting=True, stop_patterns=[])
         if outcome.decision is Decision.CONFIRM:
             if self_wake(text):  # cadangan bila model KWS melewatkan "halo brone"
                 self._wake_confirm(reason="wake_text")
@@ -261,11 +263,15 @@ class TalkService:
 
     def _wake_confirm(self, reason: str) -> None:
         self._clear_conversation()
-        self.speaker.say(messages.SAY_CONFIRM, "happy")
-        window = self.settings.audio.kws_window_s
+        self.speaker.say(messages.SAY_WAKE_SESSION, "happy")
+        window = self._session_window()
         self.session.start_wait(window)
         self._convo_until = time.monotonic() + window
         self.telemetry.stage("idle", "awaiting_question", reason=reason)
+
+    def _session_window(self) -> float:
+        """Panjang jendela sesi KWS; 0 di konfigurasi = tanpa batas (sampai "selesai brone")."""
+        return self.settings.audio.kws_window_s or math.inf
 
     def _continue_conversation(self) -> None:
         """Setelah menjawab: sisa jendela percakapan tetap terbuka tanpa wake word; habis -> tidur."""
@@ -282,7 +288,11 @@ class TalkService:
 
     def _remaining_window(self) -> float:
         s = self.session
-        window = s.await_window or self.settings.audio.kws_window_s
+        window = s.await_window or self._session_window()
+        if math.isinf(window):
+            # tanpa batas: batas mulai bicara 1 jam (bukan 0, karena 0 membuat jendela rekam hanya
+            # max_duration dan ucapan yang mulai menjelang batas itu terpotong); sunyi 1 jam -> rekam ulang
+            return 3600.0
         return max(0.5, window - (time.monotonic() - s.awaiting_since))
 
     def _reply_interruptible(self, outcome: Outcome, text: str) -> None:
@@ -322,7 +332,9 @@ class TalkService:
             text = collapse_repeats(text)
         text, called = self._addressing(text)
         stt = self.transcriber
-        if not stt.filter_enabled:
+        if not stt.filter_enabled or SESSION_END_RE.search(text):
+            # 20 Nov 2026: "selesai brone" yang diulang STT ("Selesai, BRONE, ya selesai, BRONE, ...") jangan
+            # dibuang filter frasa berulang sebelum sempat mengakhiri sesi
             return text, called
         reason = stt_garbage_reason(text, stt.last_stats, stt.vocab, stt.prompt_terms)
         if reason:

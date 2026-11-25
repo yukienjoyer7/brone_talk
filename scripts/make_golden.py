@@ -100,22 +100,16 @@ def golden_engine_routes(evals: list[str]) -> None:
         meta = res.get("meta", {})
         engine.reset()
         qvec = engine.embedder.embed([text])[0]
-        cand = engine.retriever.search(text, qvec, top=cfg.rerank_top)
-        try:
-            docs = [engine.retriever.chunks[i]["_doc"][: cfg.rerank_doc_chars] for i in cand]
-            scores = engine.reranker.score(text, docs)
-            top_rerank = round(max(scores), 4) if scores else None
-        except Exception as exc:  # gerbang diuji ulang di Fase 1 bila reranker mati
-            top_rerank = f"error: {exc}"
+        ranked = engine.retriever.search_scored(qvec, top=1)
+        top_sim = round(ranked[0][1], 4) if ranked else None
         rows.append({
             "input": text,
             "expect": expect[text]["expect"],
             "route": res["route"],
             "faq_id": (meta.get("faq") or {}).get("id"),
             "faq_score": (meta.get("faq") or {}).get("score"),
-            "top_rerank": top_rerank,
-            "rerank_gate_passes": top_rerank is not None and not isinstance(top_rerank, str)
-                                  and top_rerank >= cfg.rerank_min,
+            "top_chunk_sim": top_sim,
+            "chunk_gate_passes": top_sim is not None and top_sim >= cfg.chunk_min_sim,
         })
     write_jsonl("engine_routes.jsonl", rows)
 

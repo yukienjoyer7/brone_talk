@@ -53,7 +53,7 @@ class Recorder:
         self.max_duration_s = cfg.max_utterance_s
         self.silence_s = cfg.end_silence_s
         self.min_speech_s = cfg.min_speech_s
-        self.min_utterance_rms = cfg.min_utterance_rms  # gate energi (ambient ruangan ~0,01-0,05)
+        self.min_utterance_rms = cfg.min_utterance_rms  # gate energi minimal: suara pelan tetap diteruskan ke STT
         self.backend = cfg.backend
         self.input_device: int | None = None
         self.alsa_device = ""

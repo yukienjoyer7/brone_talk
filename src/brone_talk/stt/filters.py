@@ -12,6 +12,14 @@ _STT_HALLUCINATIONS = (
     "subtitle by", "subtitles by", "amara.org", "go to the intro",
 )
 
+# 20 Nov 2026: ucapan yang HANYA berisi "terima kasih" (boleh + nama Bron) lebih sering derau atau salah dengar
+# STT daripada ucapan sungguhan, jadi dibuang. "Terima kasih, selesai brone" / "terima kasih infonya" tetap lolos.
+_THANKS_ONLY = re.compile(
+    r"^[\W_]*(?:(?:brone|bron|brown|brian)[\W_]*)?(?:(?:terima\s*kasih|terimakasih|makasih|trims|thank\s*you|thanks)(?:\s+(?:banyak|ya|yah))?[\W_]*"
+    r"(?:(?:brone|bron|brown|brian)[\W_]*)?)+$",
+    re.IGNORECASE,
+)
+
 _STT_WAKE_STOP = ("halo", "hallo", "hai", "hey", "hello", "hi", "selesai", "diam", "stop")
 
 _PROMPT_SENTENCE_ECHO = re.compile(
@@ -52,6 +60,8 @@ def stt_garbage_reason(text, stats=None, vocab=frozenset(), terms=frozenset()): 
         return "tanpa kata"
     if any(p in low for p in _STT_HALLUCINATIONS):
         return "halusinasi whisper"
+    if _THANKS_ONLY.match(raw):
+        return "hanya terima kasih"
     if re.search(r"[぀-ヿ㐀-鿿가-힯]", raw):
         return "karakter asing"
     if re.search(r"([a-z])\1{4,}", low) or re.search(r"([a-z]{2,4})\1{3,}", low):

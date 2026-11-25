@@ -18,7 +18,9 @@ MSG_CHAT_FALLBACK = "Hehe, Bron belum bisa menjawab yang itu. Kalau soal Univers
 
 # Kalimat yang diucapkan saat alur percakapan (bukan penolakan mesin jawaban).
 SAY_CONFIRM = "Ya?"
+# 9 Nov 2026: sapaan saat "halo brone" membangunkan Bron; sesi aktif sampai "selesai brone".
+SAY_WAKE_SESSION = "hai, Brone di sini. kalau selesai tinggal bilang 'selesai brone'."
 SAY_CALL_HINT = "Ya? Sebut nama Bron di awal atau akhir pertanyaan, ya."  # bila jendela susulan mati
-SAY_STOP = "Baik, Bron kembali standby."
+SAY_STOP = "Oke, sampai jumpa!"  # 20 Nov 2026: jawaban "selesai brone"
 SAY_SERVICE_ERROR = "Maaf, layanan percakapan Bron sedang bermasalah."
 SAY_FALLBACK = "Maaf, saya tidak mengerti."  # jawaban kosong dari mesin (sama dengan produksi)

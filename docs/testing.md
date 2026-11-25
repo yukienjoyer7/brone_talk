@@ -18,7 +18,7 @@ Jalankan dengan venv yang punya dependensi (`make install` atau `PY=~/brone-talk
 | `test_tts_normalize.py` | normalisasi TTS sama dengan produksi (117 kasus jawaban nyata) | fixture golden |
 | `test_nlu_wake.py` | wake, collapse, jawaban jam, stop sama dengan produksi (587 kasus) | fixture golden |
 | `test_stt_golden.py` | koreksi dan strip prompt sama dengan produksi (587 kasus) | fixture golden |
-| `test_engine_golden.py` | rute FAQ dan gerbang reranker 60 pertanyaan eval sama dengan produksi | fixture golden + server 8082/8083 |
+| `test_engine_golden.py` | rute FAQ dan obrolan 60 pertanyaan eval sama dengan produksi | fixture golden + server 8082 |
 
 `self-test` dan `ask` tidak termasuk unit test; keduanya dijalankan manual (lihat `docs/deployment.md`).
 

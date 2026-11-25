@@ -20,7 +20,7 @@ GROUPS = {
     "SttConfig": "STT (whisper lokal)",
     "MaiConfig": "STT cloud (MAI-Transcribe-2 via Azure Voice Live)",
     "TtsConfig": "TTS (Piper)",
-    "EngineSettings": "Mesin jawaban (FAQ, RAG, reranker, LLM)",
+    "EngineSettings": "Mesin jawaban (FAQ, RAG, gerbang kemiripan, LLM)",
 }
 
 

@@ -1,6 +1,6 @@
-"""Rute engine (FAQ, gerbang reranker) harus sama dengan produksi untuk 60 pertanyaan eval.
+"""Rute engine (FAQ dan obrolan) harus sama dengan produksi untuk 60 pertanyaan eval.
 
-Butuh server embedding (127.0.0.1:8082) dan reranker (127.0.0.1:8083) yang sedang hidup.
+Butuh server embedding (127.0.0.1:8082) yang sedang hidup.
 Fixture tests/golden/engine_routes.jsonl tidak di-commit. Tanpa fixture atau server, tes dilewati.
 """
 
@@ -24,7 +24,7 @@ def _server_up(port: int) -> bool:
 
 
 @unittest.skipUnless(GOLDEN.is_file(), "fixture golden belum dibangkitkan (lihat scripts/make_golden.py)")
-@unittest.skipUnless(_server_up(8082) and _server_up(8083), "server embedding/reranker (8082/8083) tidak hidup")
+@unittest.skipUnless(_server_up(8082), "server embedding (8082) tidak hidup")
 class EngineRoutesGolden(unittest.TestCase):
     def test_routes_match_production(self):
         from brone_talk.engine.answer import AnswerEngine, EngineConfig

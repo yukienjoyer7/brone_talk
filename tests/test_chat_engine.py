@@ -56,6 +56,7 @@ class ChatOrRefuse(unittest.TestCase):
         eng = object.__new__(AnswerEngine)
         eng.cfg = EngineConfig(kb_dir=ROOT / "kb", runtime_dir=tmp, mode=mode)
         eng.cloud = FakeBackend(raw)
+        eng.net, eng._cloud_failed_at = None, 0.0
         eng.turn_log = tmp / "turns.jsonl"
         return eng
 
@@ -105,9 +106,8 @@ class ChatOrRefuse(unittest.TestCase):
                     return_value=(failure, {}))
                 chat = eng._chat_or_refuse("apa kabar", "", "tolak_tidak_ada_info", {}, 0.0)
                 self.assertEqual(chat["response"], messages.MSG_NO_INFO)
-                eng.retriever = SimpleNamespace(search=lambda *a, **kw: [0],
+                eng.retriever = SimpleNamespace(search_scored=lambda *a, **kw: [(0, 0.9)],
                                                 chunks=[{"_doc": "UB", "id": "1", "judul": "UB", "teks": "UB"}])
-                eng.reranker = SimpleNamespace(score=lambda *a: [1.0])
                 eng.prev_question = ""
                 rag = eng._rag_answer("tentang UB", None, "", {}, 0.0)
                 self.assertIn(rag["response"], (messages.MSG_SERVICE_DOWN, messages.MSG_NOT_UNDERSTOOD))
@@ -115,9 +115,8 @@ class ChatOrRefuse(unittest.TestCase):
     def test_missing_cloud_refuses_rag(self):
         eng = self.engine("")
         eng.cloud = None
-        eng.retriever = SimpleNamespace(search=lambda *a, **kw: [0],
+        eng.retriever = SimpleNamespace(search_scored=lambda *a, **kw: [(0, 0.9)],
                                         chunks=[{"_doc": "UB", "id": "1", "judul": "UB", "teks": "UB"}])
-        eng.reranker = SimpleNamespace(score=lambda *a: [1.0])
         eng.prev_question = ""
         result = eng._rag_answer("tentang UB", None, "", {}, 0.0)
         self.assertEqual(result["response"], messages.MSG_SERVICE_DOWN)
@@ -152,3 +151,36 @@ class MotionCommand(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RagIgnoresBackgroundChatter(unittest.TestCase):
+    """20 Nov 2026: LLM RAG menandai obrolan latar dengan "abaikan": true -> Bron diam."""
+
+    def engine(self, raw):
+        tmp = Path(tempfile.mkdtemp())
+        eng = object.__new__(AnswerEngine)
+        eng.cfg = EngineConfig(kb_dir=ROOT / "kb", runtime_dir=tmp, mode="auto")
+        eng.cloud = FakeBackend(raw)
+        eng.net, eng._cloud_failed_at = None, 0.0
+        eng.turn_log = tmp / "turns.jsonl"
+
+        class Retriever:
+            chunks = [{"id": "c1"}]
+
+            def search_scored(self, qvec, top=5):
+                return [(0, 0.99)]
+
+        eng.retriever = Retriever()
+        eng._context = lambda ranked: "Gedung FILKOM ada di Jalan Veteran."
+        eng.prev_question = ""
+        return eng
+
+    def test_background_chatter_is_silent(self):
+        import time
+        eng = self.engine('{"abaikan": true, "answerable": false, "response": "", "expression": "neutral"}')
+        res = eng._rag_answer("eh nanti makan di gedung filkom aja", None, "", {}, time.perf_counter())
+        self.assertEqual(res["route"], "abaikan")
+        self.assertEqual(res["response"], "")
+
+    def test_goodbye_message(self):
+        self.assertEqual(messages.SAY_STOP, "Oke, sampai jumpa!")

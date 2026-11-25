@@ -16,7 +16,7 @@ dan bisa diajak ngobrol santai. Telemetri tiap tahap dikirim lewat MQTT ke Jetso
      ("halo brone" lagi di dalam jendela = "Ya?" lagi, jendela dimulai ulang)
   -> STT: MAI-Transcribe-2 (cloud)  | cadangan faster-whisper small (lokal)
   -> mesin jawaban: jam | FAQ semantik (bge-m3) | obrolan tetap | RAG BM25+embedding
-                    -> reranker -> LLM DeepSeek (tolak jika gagal) -> cek grounding
+                    -> gerbang kemiripan chunk -> LLM DeepSeek (cloud) -> cek grounding
   -> TTS Piper -> speaker -> jendela habis -> kembali tidur
 "halo brone" saat Bron bicara = interupsi (belum bekerja di robot, lihat Masalah)
 ```
@@ -24,8 +24,8 @@ dan bisa diajak ngobrol santai. Telemetri tiap tahap dikirim lewat MQTT ke Jetso
 | Bagian | Isi |
 |---|---|
 | Perangkat | NUC i7-1260P/30 GB, mic reSpeaker XVF3800 (+ mic wireless), speaker USB CS202, broker MQTT di Jetson |
-| Layanan | `brone-talk` + llama.cpp `brone-v4-embed` (8082) dan `brone-v4-rerank` (8083) |
-| Basis pengetahuan | 147 FAQ (672 variasi), 232 chunk RAG, 43 obrolan tetap, data UKT/IPI 2026 |
+| Layanan | `brone-talk` + llama.cpp `brone-v4-embed` (8082); total RAM ~2,5 GB (reranker dihapus 12 Nov, LLM lokal dihapus 24 Nov 2026) |
+| Basis pengetahuan | 141 FAQ (659 variasi), 226 chunk RAG, 43 obrolan tetap, data UKT/IPI 2026 |
 | Kode | ~3.900 baris Python, 90 tes unit (OK), konfigurasi env `BRONE_*` di `config.py` |
 
 ## Rangkuman analisis (26 Okt 2026)
@@ -40,8 +40,8 @@ dan bisa diajak ngobrol santai. Telemetri tiap tahap dikirim lewat MQTT ke Jetso
 
 **Kekuatan**
 
-- Mesin jawaban berlapis: FAQ tanpa LLM, reranker sebagai gerbang, grounding anti-karangan.
-- Ada cadangan untuk STT (MAI→whisper) dan mikrofon (wireless→XVF3800).
+- Mesin jawaban berlapis: FAQ tanpa LLM, gerbang kemiripan chunk, grounding anti-karangan, konteks satu giliran untuk pertanyaan lanjutan ("kalau FT?").
+- Ada cadangan di setiap tahap: MAI→whisper, mic wireless→XVF3800. LLM hanya DeepSeek cloud; FAQ tetap jalan tanpa internet.
 - Kode modular, teruji, dan terdokumentasi.
 
 **Masalah utama**

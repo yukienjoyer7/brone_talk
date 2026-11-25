@@ -24,6 +24,10 @@ from brone_talk.tts.normalize import (
 
 
 _IYA_SENDIRI = re.compile(r"(^|[.!?]\s+)i?ya\s*[.!?]*(?=\s|$)", re.I)  # "Iya." dan sapaan bangun "Ya?"
+# 24 Nov 2026: lexicon.tsv hanya cocok "BRONE"/"Bron" persis; "Brone", "brone", "BRONE-nya" lolos dan espeak
+# melafalkan /brˈonə/ ("bro-ne"). Nama robot diucapkan "bron" (lexicon: dikonfirmasi user), jadi semua ejaan
+# disamakan ke "Bron" sebelum to_spoken.
+_BRONE = re.compile(r"\bbrone\b", re.I)
 
 
 def load_spoken(textnorm_dir: Path) -> Callable[[str], str]:
@@ -51,6 +55,7 @@ def load_spoken(textnorm_dir: Path) -> Callable[[str], str]:
         text = strip_markdown(text)
         text = re.sub(r"(?<![\w.])@(?=\w)", "", text)  # akun IG "@filkomub" -> "filkom u be" (email tetap)
         text = normalize_for_speech(text)  # Jl./No./gelar, telepon/NIM/RT dieja per digit
+        text = _BRONE.sub("Bron", text)
         text = textnorm.to_spoken(text)
         text = acronym_pattern.sub(lambda m: acronyms[m.group(0)], text)
         text = loan_pattern.sub(lambda m: loans[m.group(0).lower()], text)
