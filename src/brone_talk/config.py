@@ -65,8 +65,9 @@ class AudioConfig:
     end_silence_s: float = 0.8  # BRONE_END_SILENCE_SECONDS
     min_speech_s: float = 0.35  # BRONE_MIN_SPEECH_SECONDS
     max_utterance_s: float = 8.0  # BRONE_MAX_UTTERANCE_SECONDS (kode lama: 12)
-    # 20 Nov 2026: 0.030 -> 0.005, STT kuat; hanya buang klip nyaris senyap
-    min_utterance_rms: float = 0.005  # BRONE_MIN_UTTERANCE_RMS
+    # 26 Nov 2026: 0.005 -> 0 (gate energi nonaktif, semua klip diteruskan ke STT)
+    # 20 Nov 2026: 0.030 -> 0.005
+    min_utterance_rms: float = 0.0  # BRONE_MIN_UTTERANCE_RMS
     noise_reduce: bool = False  # BRONE_NOISE_REDUCE
     noise_prop_decrease: float = 0.9  # BRONE_NOISE_PROP_DECREASE
     noise_stationary: bool = False  # BRONE_NOISE_STATIONARY

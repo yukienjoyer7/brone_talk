@@ -35,7 +35,7 @@ tidak dibawa ke sini; lihat `docs/decisions.md`.
 | `end_silence_s` | `0.8` | `BRONE_END_SILENCE_SECONDS` |  |
 | `min_speech_s` | `0.35` | `BRONE_MIN_SPEECH_SECONDS` |  |
 | `max_utterance_s` | `8.0` | `BRONE_MAX_UTTERANCE_SECONDS` | (kode lama: 12) |
-| `min_utterance_rms` | `0.005` | `BRONE_MIN_UTTERANCE_RMS` |  |
+| `min_utterance_rms` | `0.0` | `BRONE_MIN_UTTERANCE_RMS` |  |
 | `noise_reduce` | `False` | `BRONE_NOISE_REDUCE` |  |
 | `noise_prop_decrease` | `0.9` | `BRONE_NOISE_PROP_DECREASE` |  |
 | `noise_stationary` | `False` | `BRONE_NOISE_STATIONARY` |  |

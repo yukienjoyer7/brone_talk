@@ -8,7 +8,7 @@ NUC. Kalau mau mengubahnya, ukur ulang di hardware yang sama dulu.
 - **Endpointing satu implementasi.** Jalur ALSA (dengan arah suara) dan jalur sounddevice memakai
   `audio/endpointing.py` yang sama. Dua loop lama identik secara logika; hanya sumber sampel dan
   DOA yang berbeda. Jalur sounddevice kini juga mengirim `doa=None` di telemetri.
-- **Gate energi.** Klip dengan RMS di bawah `BRONE_MIN_UTTERANCE_RMS` (0,005; sebelum 20 Nov 2026: 0,030) dibuang. Gate sengaja dibuat sangat rendah karena STT sekarang kuat untuk suara pelan; penyaringan obrolan latar dipindah ke LLM (jenis "abaikan"). Derau ruangan
+- **Gate energi.** Klip dengan RMS di bawah `BRONE_MIN_UTTERANCE_RMS` dibuang. Sejak 26 Nov 2026 nilainya 0 (gate nonaktif, semua klip diteruskan ke STT; sebelumnya 0,005, dan sebelum 20 Nov 2026: 0,030). Gate dibuat rendah karena STT sekarang kuat untuk suara pelan; penyaringan obrolan latar dipindah ke LLM (jenis "abaikan"). Derau ruangan
   NUC biasanya 0,01 sampai 0,05.
 - **Mic dipilih tiap rekaman.** Urutan `BRONE_INPUT_PIPEWIRE_NODES` adalah prioritas. Mic wireless
   dengan RNNoise didahulukan. XVF3800 tidak diberi RNNoise karena chip-nya sudah meredam derau dan
